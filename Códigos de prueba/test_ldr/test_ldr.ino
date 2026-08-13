@@ -1,0 +1,27 @@
+// ST - TP DOG - Grupo 8 - Santiago Fernández, Paulina Gonzalez y Avner Yunik
+// Código para probar LDR y envía resultado (mapeado) por puerto serie.
+
+#define LDR 32              // pin analógico GPIO32 para el LDR
+#define TIEMPO_LECTURA 500  // 500 milisegundos
+
+// Variables para millis
+unsigned long tiempoAnterior = 0;  // Tiempo anterior
+unsigned long tiempoActual = 0;    // Tiempo actual
+void setup() {
+  Serial.begin(115200);
+  pinMode(LDR, INPUT);  // definir pin
+}
+
+void loop() {
+
+  tiempoActual = millis();  // lee el tiempo con millis(); para que no sea bloqueante
+
+  if (tiempoActual - tiempoAnterior >= TIEMPO_LECTURA) {
+    tiempoAnterior = tiempoActual;  // guardar el último tiempo de lectura.
+
+    int lectura = analogRead(LDR);
+    int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
+    Serial.print("Lectura LDR en porcentaje: ");
+    Serial.println(mapeoLectura);
+  }
+}
