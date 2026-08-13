@@ -20,7 +20,8 @@ void loop() {
     tiempoAnterior = tiempoActual;  // guardar el último tiempo de lectura.
 
     int lectura = analogRead(LDR);
-    int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
+    // int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
+    int mapeoLectura = map(lectura, 0, 4095, 0, 100);
     Serial.print("Lectura LDR en porcentaje: ");
     Serial.println(mapeoLectura);
   }
