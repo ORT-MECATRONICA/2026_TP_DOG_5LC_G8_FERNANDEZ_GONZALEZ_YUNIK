@@ -1,15 +1,15 @@
 // ST - TP DOG - Grupo 8 - Santiago Fernández, Paulina Gonzalez y Avner Yunik
-// Código para probar LDR y envía resultado (mapeado) por puerto serie.
+// Código para probar sensor de gas, simulado con un potenciómetro
 
-#define LDR 32              // pin analógico GPIO32 para el LDR
+#define GAS 33              // pin analógico GPIO33 para el sensor de gas (simulado con un pote)
 #define TIEMPO_LECTURA 500  // 500 milisegundos
 
-// Variables para millis
-unsigned long tiempoAnterior = 0;  // Tiempo anterior
-unsigned long tiempoActual = 0;    // Tiempo actual
 void setup() {
   Serial.begin(115200);
-  pinMode(LDR, INPUT);  // definir pin
+  pinMode(GAS, INPUT);  // definir pin
+  Serial.println("Simulando mq flying fish.");
+  Serial.println("Porcentaje más alto, mayor concentración de gas.");
+
 }
 
 void loop() {
@@ -22,10 +22,10 @@ void loop() {
     int lectura = analogRead(LDR);
     // int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
     int mapeoLectura = map(lectura, 0, 4095, 0, 100);
-    Serial.print("Lectura LDR: ");
+    Serial.print("Lectura GAS sin mapear: ");
     Serial.println(lectura);
-    Serial.print("Lectura LDR en porcentaje: ");
+    Serial.print("Lectura GAS en porcentaje: ");
     Serial.println(mapeoLectura);
-    
   }
+
 }
