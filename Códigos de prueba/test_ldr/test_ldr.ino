@@ -28,7 +28,7 @@ void loop() {
     Serial.println(lectura);
     Serial.print("Lectura LDR en porcentaje: ");
     Serial.println(mapeoLectura);
-    analogWrite(LED,lectura);
+    analogWrite(LED,mapeoLectura);
     
   }
 }
