@@ -2,6 +2,7 @@
 // Código para probar LDR y envía resultado (mapeado) por puerto serie.
 
 #define LDR 32              // pin analógico GPIO32 para el LDR
+#define LED 33  // pin analogico led
 #define TIEMPO_LECTURA 500  // 500 milisegundos
 
 // Variables para millis
@@ -10,6 +11,7 @@ unsigned long tiempoActual = 0;    // Tiempo actual
 void setup() {
   Serial.begin(115200);
   pinMode(LDR, INPUT);  // definir pin
+  pinMode(LED, OUTPUT); // pin led
 }
 
 void loop() {
@@ -26,6 +28,7 @@ void loop() {
     Serial.println(lectura);
     Serial.print("Lectura LDR en porcentaje: ");
     Serial.println(mapeoLectura);
+    analogWrite(LED,lectura);
     
   }
 }
