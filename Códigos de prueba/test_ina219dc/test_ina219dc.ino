@@ -3,6 +3,7 @@
 #include <Adafruit_INA219.h>
 #include <Wire.h>
 
+#define LED_PIN 16
 Adafruit_INA219 ina219;
 
 //float tension = 0;
