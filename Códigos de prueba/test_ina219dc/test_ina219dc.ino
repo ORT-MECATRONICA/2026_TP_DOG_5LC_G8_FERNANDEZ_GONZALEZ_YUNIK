@@ -46,7 +46,7 @@ void lecturaINA219() {
   */
   
   // imprimir corriente
-  Serial.print("Corriente: ");
+  Serial.print("Corriente del LED: ");
   Serial.print(corriente);
   Serial.print("mA");
   Serial.println(" ");
