@@ -1,14 +1,14 @@
 // ST - TP DOG - Grupo 8 - Santiago Fernández, Paulina Gonzalez y Avner Yunik
-// Código para probar relé. Prende led cuando relé encendido
+// Código para probar relé. Prende led (activa circuito) cuando relé encendido
 
 #define RELAY_PIN 13  // Pin Relay Input
-#define LED_PIN 16    // Pin Led
+
 #define INTERVAL 1000
 unsigned long previousMillis = 0;
 
 void setup() {
   pinMode(RELAY_PIN, OUTPUT);  // Set the relay pin as an output
-  pinMode(LED_PIN, OUTPUT);    // Set the relay pin as an output
+
   Serial.begin(115200);
 }
 
@@ -23,11 +23,13 @@ void loop() {
     // if the LED is off turn it on and vice-versa:
     if (RELAY_PIN == LOW) {
       digitalWrite(RELAY_PIN, HIGH);
-      digitalWrite(LED_PIN, HIGH);
+      Serial.println("HIGH");
+ 
 
-    } else {
+    } else if (RELAY_PIN == HIGH){
       digitalWrite(RELAY_PIN, LOW);
-      digitalWrite(LED_PIN, HIGH);
+      Serial.println("LOW");
+   
     }
   }
 }

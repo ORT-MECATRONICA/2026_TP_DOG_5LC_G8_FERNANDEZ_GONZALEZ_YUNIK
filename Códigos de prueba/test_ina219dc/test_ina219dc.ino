@@ -3,11 +3,9 @@
 #include <Adafruit_INA219.h>
 #include <Wire.h>
 
-#define LED_PIN 16
+
 Adafruit_INA219 ina219;
 
-//float tension = 0;
-//float potencia = 0;
 float corriente = 0;
 
 
@@ -22,7 +20,7 @@ void setup() {
       delay(10);
     }
   }
-
+ 
   Serial.begin(115200);
 }
 
@@ -33,17 +31,9 @@ void loop() {
 void lecturaINA219() {
 
   // leer valores
-  //tension = ina219.getBusVoltage_V();
-  //potencia = ina219.getPower_mW();
   corriente = ina219.getCurrent_mA();
 
 
-  // IMPRIMIR TENSIÓN
-  /* Serial.print("Voltaje: ");
-  Serial.print(tension);
-  Serial.print("V");
-  Serial.println(" ");
-  */
   
   // imprimir corriente
   Serial.print("Corriente del LED: ");
@@ -51,14 +41,6 @@ void lecturaINA219() {
   Serial.print("mA");
   Serial.println(" ");
 
-  
-  // imprimir potencia
-  /*
-  Serial.print("Potencia: ");
-  Serial.print(potencia);
-  Serial.print("mW");
-  Serial.println(" ");
-  */
 
   delay(2000);
 }

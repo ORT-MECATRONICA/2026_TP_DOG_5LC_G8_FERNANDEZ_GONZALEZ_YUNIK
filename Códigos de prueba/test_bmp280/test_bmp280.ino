@@ -1,5 +1,5 @@
 // ST - TP DOG - Grupo 8 - Santiago Fernández, Paulina Gonzalez y Avner Yunik
-
+// código de prueba bmp280
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_BMP280.h>
@@ -18,7 +18,6 @@ void setup() {
   while ( !Serial ) delay(100);   // wait for native usb
   Serial.println(F("BMP280 test"));
   unsigned status;
-  //status = bmp.begin(BMP280_ADDRESS_ALT, BMP280_CHIPID);
   
   status = bmp.begin(0x76);
   if (!status) {
