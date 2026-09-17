@@ -17,10 +17,10 @@ void loop() {
   unsigned long currentMillis = millis();
 
   if (currentMillis - previousMillis >= INTERVAL) {
-    // save the last time you blinked the LED
+    
     previousMillis = currentMillis;
 
-    // if the LED is off turn it on and vice-versa:
+  
     if (RELAY_PIN == LOW) {
       digitalWrite(RELAY_PIN, HIGH);
       Serial.println("HIGH");
