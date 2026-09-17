@@ -1,6 +1,7 @@
 // ST - TP DOG - Grupo 8 - Santiago Fernández, Paulina Gonzalez y Avner Yunik
+
 /*
- Código de prueba integrador de sensores y módulos. Incluirá
+ [INCOMPLETO] Código de prueba integrador de sensores y módulos. Incluirá
     • LCD 16x2
     • MQ FLYING FISH
     • BMP 280
@@ -36,6 +37,7 @@
 #define LDR_PIN 32
 #define LED_PIN 18
 #define GAS_PIN 33
+#define RELAY_PIN 13
 
 // Configuración de pines UART2 en ESP32
 #define RXD2 16
@@ -75,6 +77,7 @@ void setup() {
   pinMode(LDR_PIN, INPUT);
   pinMode(OPTO_PIN, INPUT);
   pinMode(LED_PIN, OUTPUT);
+  pinMode(RELAY_PIN, OUTPUT);
   Wire.begin(SDA_PIN, SCL_PIN);
   Serial.begin(BAUD);
 
