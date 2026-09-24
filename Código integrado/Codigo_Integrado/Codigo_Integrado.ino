@@ -29,6 +29,7 @@
 #define TIEMPO_LECTURA_MQ 500
 #define TIEMPO_LECTURA_OPTO 100
 #define TIEMPO_LECTURA_RADAR 1000
+#define TIEMPO_REFRESH_DISPLAY 200
 
 // pinout
 #define OPTO_PIN 4
@@ -38,6 +39,8 @@
 #define LED_PIN 18
 #define GAS_PIN 33
 #define RELAY_PIN 13
+
+//#define BUTTON_PIN_1
 
 // Configuración de pines UART2 en ESP32
 #define RXD2 16
@@ -57,6 +60,8 @@ bool ina219Listo = false;
 float corriente = 0;
 float temperatura = 0;
 float presion = 0;
+float valorLDR = 0;
+float mapeoLecturaLDR = 0;
 
 // VARIABLES timer
 volatile int timerBMP = 0;
@@ -66,6 +71,7 @@ volatile int timerGas = 0;
 volatile int timerOpto = 0;
 volatile int timerRadar = 0;
 volatile int timerPulsador = 0;
+volatile int timerDisplay = 0;
 
 // TIMER
 hw_timer_t *timer = NULL;  // timer
@@ -147,7 +153,7 @@ void loop() {
   lecturaGas();
   lecturaOpto();
   lecturaRadar();
-
+  display();
 }
 
 
@@ -189,11 +195,11 @@ void lecturaLDR() {
 
   if (timerLDR >= TIEMPO_LECTURA_LDR) {
 
-    int lecturaLDR = analogRead(LDR_PIN);
+    valorLDR = analogRead(LDR_PIN);
     // int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
-    int mapeoLecturaLDR = map(lecturaLDR, 0, 4095, 0, 100);
+    mapeoLecturaLDR = map(valorLDR, 0, 4095, 100, 0);
     Serial.print("Lectura LDR: ");
-    Serial.println(lecturaLDR);
+    Serial.println(valorLDR);
     Serial.print("Lectura LDR en porcentaje: ");
     Serial.println(mapeoLecturaLDR);
     timerLDR = 0;
@@ -261,7 +267,17 @@ void lecturaRadar() {
     }
     timerRadar = 0;
   }
+}
 
+void display() {
+  if (timerDisplay >= TIEMPO_REFRESH_DISPLAY) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("mapeoLecturaLDR");
+    lcd.setCursor(0, 1);
+    lcd.print("ldr");
+    timerDisplay = 0;
+  }
 }
 
 void IRAM_ATTR onTimer() {
@@ -272,4 +288,5 @@ void IRAM_ATTR onTimer() {
   timerOpto += 1;
   timerRadar += 1;
   timerPulsador += 1;
+  timerDisplay += 1;
 }
