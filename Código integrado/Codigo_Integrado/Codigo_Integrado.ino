@@ -40,8 +40,6 @@
 #define GAS_PIN 33
 #define RELAY_PIN 13
 
-//#define BUTTON_PIN_1
-
 // Configuración de pines UART2 en ESP32
 #define RXD2 16
 #define TXD2 17
