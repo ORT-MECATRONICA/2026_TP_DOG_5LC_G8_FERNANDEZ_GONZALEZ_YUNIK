@@ -30,6 +30,7 @@
 #define TIEMPO_LECTURA_OPTO 100
 #define TIEMPO_LECTURA_RADAR 1000
 #define TIEMPO_REFRESH_DISPLAY 200
+#define TIEMPO_MENSAJES 2000
 
 // pinout
 #define OPTO_PIN 4
@@ -60,6 +61,9 @@ float temperatura = 0;
 float presion = 0;
 float valorLDR = 0;
 float mapeoLecturaLDR = 0;
+float distanciaRadar = 0;
+float energiaRadar = 0;
+String personaDetectada = "";
 
 // VARIABLES timer
 volatile int timerBMP = 0;
@@ -70,6 +74,7 @@ volatile int timerOpto = 0;
 volatile int timerRadar = 0;
 volatile int timerPulsador = 0;
 volatile int timerDisplay = 0;
+volatile int timerMensajes = 0;
 
 // TIMER
 hw_timer_t *timer = NULL;  // timer
@@ -244,23 +249,26 @@ void lecturaRadar() {
         Serial.print("[PRESENCIA DETECTADA] -> ");
 
         if (radar.stationaryTargetDetected()) {
-          Serial.print("Objetivo Estático: ");
-          Serial.print(radar.stationaryTargetDistance());
-          Serial.print(" cm (Energía: ");
-          Serial.print(radar.stationaryTargetEnergy());
-          Serial.print(") | ");
+        
+          distanciaRadar = radar.stationaryTargetDistance();
+         
+          energiaRadar = radar.stationaryTargetEnergy();
+        
+          personaDetectada = "QUIETO";
         }
 
         if (radar.movingTargetDetected()) {
-          Serial.print("Objetivo en Movimiento: ");
-          Serial.print(radar.movingTargetDistance());
-          Serial.print(" cm (Energía: ");
-          Serial.print(radar.movingTargetEnergy());
-          Serial.print(")");
+          
+          distanciaRadar = radar.movingTargetDistance();
+          
+          energiaRadar = radar.movingTargetEnergy();
+          
+          personaDetectada = "MOV";
         }
         Serial.println();
       } else {
-        Serial.println("[---] Sin presencia humana detectada.");
+      
+        personaDetectada = "N/A";
       }
     }
     timerRadar = 0;
@@ -271,11 +279,26 @@ void display() {
   if (timerDisplay >= TIEMPO_REFRESH_DISPLAY) {
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print("mapeoLecturaLDR");
+    lcd.print("TP DOG 5LC - Yunik");
     lcd.setCursor(0, 1);
-    lcd.print("ldr");
+    lcd.print("Gonzalez, Fernandez");
     timerDisplay = 0;
   }
+}
+
+// incompleto
+void mensajes (){
+
+   if (timerMensajes >= TIEMPO_MENSAJES){
+    Serial.println("RADAR: ");
+    Serial.print("Distancia: ");
+    Serial.print(distanciaRadar);
+    Serial.print("cm. Energía sujeto: ");
+    Serial.print(distanciaRadar);
+    Serial.print("cm");
+
+    timerMensajes = 0;
+   }
 }
 
 void IRAM_ATTR onTimer() {
@@ -287,4 +310,5 @@ void IRAM_ATTR onTimer() {
   timerRadar += 1;
   timerPulsador += 1;
   timerDisplay += 1;
+  timerMensajes += 1;
 }
