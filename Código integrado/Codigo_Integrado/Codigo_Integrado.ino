@@ -1,7 +1,7 @@
 // ST - TP DOG - Grupo 8 - Santiago Fernández, Paulina Gonzalez y Avner Yunik
 
 /*
- [INCOMPLETO] Código de prueba integrador de sensores y módulos. Incluirá
+  Código de prueba integrador de sensores y módulos. Incluirá
     • LCD 16x2
     • MQ FLYING FISH
     • BMP 280
@@ -31,24 +31,46 @@
 #define TIEMPO_LECTURA_RADAR 1000
 #define TIEMPO_REFRESH_DISPLAY 200
 #define TIEMPO_MENSAJES 2000
+#define TIEMPO_DEBOUNCE 50
 
 // pinout
-#define OPTO_PIN 4
-#define SCL_PIN 21
-#define SDA_PIN 22
-#define LDR_PIN 32
-#define LED_PIN 18
+#define OPTO_PIN 39
+
+// i2c lcd,
+#define SCL_PIN_A 12
+#define SDA_PIN_A 13
+
+// Bmp 280
+#define SCL_PIN_B 19
+#define SDA_PIN_B 18
+
+#define LDR_PIN 34
 #define GAS_PIN 33
-#define RELAY_PIN 13
+#define RELAY_PIN 32
+
+#define LED_PIN_1 23
+#define LED_PIN_2 22
+
+#define BUTTON_PIN_1 1
+#define BUTTON_PIN_2 3
+#define BUTTON_PIN_3 5
+#define BUTTON_PIN_4 4
+#define BUTTON_PIN_5 21
+
+
 
 // Configuración de pines UART2 en ESP32
+// LD2410C,
 #define RXD2 16
 #define TXD2 17
 
 // Configuración de actuadores
-Adafruit_BMP280 bmp;                 // I2C
+
+Adafruit_BMP280 bmp(&Wire1);                 // I2C
 Adafruit_INA219 ina219;              // ina219
 ld2410 radar;                        // ld2410
+
+// corregir bus i2c
 LiquidCrystal_I2C lcd(0x27, 16, 2);  // LCD
 
 // BOOL
@@ -76,18 +98,55 @@ volatile int timerPulsador = 0;
 volatile int timerDisplay = 0;
 volatile int timerMensajes = 0;
 
+volatile int timerBoton1 = 0;
+volatile int timerBoton2 = 0;
+volatile int timerBoton3 = 0;
+volatile int timerBoton4 = 0;
+volatile int timerBoton5 = 0;
 // TIMER
 hw_timer_t *timer = NULL;  // timer
 void IRAM_ATTR onTimer();  // function interrupts every 1msD
+
+// Estados botones
+
+bool ultimoBoton1 = HIGH;
+bool estadoBoton1 = HIGH;
+
+bool ultimoBoton2 = HIGH;
+bool estadoBoton2 = HIGH;
+
+bool ultimoBoton3 = HIGH;
+bool estadoBoton3 = HIGH;
+
+bool ultimoBoton4 = HIGH;
+bool estadoBoton4 = HIGH;
+
+bool ultimoBoton5 = HIGH;
+bool estadoBoton5 = HIGH;
+
+
 
 void setup() {
 
   pinMode(GAS_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
   pinMode(OPTO_PIN, INPUT);
-  pinMode(LED_PIN, OUTPUT);
+
+  pinMode(LED_PIN_1, OUTPUT);
+  pinMode(LED_PIN_2, OUTPUT);
+
   pinMode(RELAY_PIN, OUTPUT);
-  Wire.begin(SDA_PIN, SCL_PIN);
+  
+  Wire.begin(SDA_PIN_A, SCL_PIN_A);
+  Wire1.begin(SDA_PIN_B, SCL_PIN_B, 100000);
+
+ 
+  pinMode(BUTTON_PIN_1, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_2, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_3, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_4, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_5, INPUT_PULLUP);
+
   Serial.begin(BAUD);
 
   // Establecer LCD
@@ -123,7 +182,7 @@ void setup() {
     bmpListo = true;
   }
 
-  if (bmpListo = true) {
+  if (bmpListo == true) {
 
     bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     /* Operating Mode. */
                     Adafruit_BMP280::SAMPLING_X2,     /* Temp. oversampling */
@@ -150,6 +209,7 @@ void setup() {
 void loop() {
 
   // Lectura de actuadores.
+  
   lecturaBMP();
   lecturaINA219();
   lecturaLDR();
@@ -157,6 +217,8 @@ void loop() {
   lecturaOpto();
   lecturaRadar();
   display();
+  
+  pulsadores();
 }
 
 
@@ -167,6 +229,7 @@ void lecturaBMP() {
     temperatura = bmp.readTemperature();
     presion = bmp.readPressure();
 
+    /*
     Serial.print(F("Temperatura = "));
     Serial.print(temperatura);
     Serial.println(" *C");
@@ -174,22 +237,25 @@ void lecturaBMP() {
     Serial.print(F("Presión = "));
     Serial.print(presion);
     Serial.println(" Pa");
+    */
 
     timerBMP = 0;
   }
 }
 
 void lecturaINA219() {
-  if (ina219Listo = true && timerINA219 >= TIEMPO_LECTURA_INA219) {
+  if (ina219Listo == true && timerINA219 >= TIEMPO_LECTURA_INA219) {
 
     // leer valores
     corriente = ina219.getCurrent_mA();
 
     // imprimir corriente
-    Serial.print("Corriente del LED: ");
+    /*  Serial.print("Corriente del LED: ");
     Serial.print(corriente);
     Serial.print("mA");
     Serial.println(" ");
+    */
+  
     timerINA219 = 0;
   }
 }
@@ -215,10 +281,13 @@ void lecturaGas() {
     int lecturaGas = analogRead(GAS_PIN);
     // int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
     int mapeoLecturaGas = map(lecturaGas, 0, 4095, 0, 100);
+    /*
     Serial.print("Lectura GAS sin mapear: ");
     Serial.println(lecturaGas);
     Serial.print("Lectura GAS en porcentaje: ");
     Serial.println(mapeoLecturaGas);
+    */
+
     timerGas = 0;
   }
 }
@@ -230,9 +299,9 @@ void lecturaOpto() {
 
     // Lógica inversa: LOW significa que hay 12V en la entrada
     if (estado == LOW) {
-      Serial.println("Señal de 12V DETECTADA");
+      //Serial.println("Señal de 12V DETECTADA");
     } else {
-      Serial.println("Sin señal (0V)");
+      //Serial.println("Sin señal (0V)");
     }
     timerOpto = 0;
   }
@@ -249,25 +318,25 @@ void lecturaRadar() {
         Serial.print("[PRESENCIA DETECTADA] -> ");
 
         if (radar.stationaryTargetDetected()) {
-        
+
           distanciaRadar = radar.stationaryTargetDistance();
-         
+
           energiaRadar = radar.stationaryTargetEnergy();
-        
+
           personaDetectada = "QUIETO";
         }
 
         if (radar.movingTargetDetected()) {
-          
+
           distanciaRadar = radar.movingTargetDistance();
-          
+
           energiaRadar = radar.movingTargetEnergy();
-          
+
           personaDetectada = "MOV";
         }
         Serial.println();
       } else {
-      
+
         personaDetectada = "N/A";
       }
     }
@@ -287,9 +356,9 @@ void display() {
 }
 
 // incompleto
-void mensajes (){
+void mensajes() {
 
-   if (timerMensajes >= TIEMPO_MENSAJES){
+  if (timerMensajes >= TIEMPO_MENSAJES) {
     Serial.println("RADAR: ");
     Serial.print("Distancia: ");
     Serial.print(distanciaRadar);
@@ -298,10 +367,42 @@ void mensajes (){
     Serial.print("cm");
 
     timerMensajes = 0;
-   }
+  }
+}
+
+void pulsadores() {
+  bool lectura1 = digitalRead(BUTTON_PIN_1);
+  bool lectura2 = digitalRead(BUTTON_PIN_2);
+  bool lectura3 = digitalRead(BUTTON_PIN_3);
+  bool lectura4 = digitalRead(BUTTON_PIN_4);
+  bool lectura5 = digitalRead(BUTTON_PIN_5);
+
+  if (lectura1 != ultimoBoton1) {
+
+    timerBoton1 = 0;
+    ultimoBoton1 = lectura1;
+  }
+
+  if (timerBoton1 >= TIEMPO_DEBOUNCE) {
+
+    if (lectura1 != estadoBoton1) {
+
+      estadoBoton1 = lectura1;
+
+      if (estadoBoton1 == LOW) {
+        digitalWrite(LED_PIN_1, HIGH);
+
+      } else {
+        digitalWrite(LED_PIN_1, LOW);
+      }
+    }
+  }
+
+
 }
 
 void IRAM_ATTR onTimer() {
+   
   timerBMP += 1;
   timerINA219 += 1;
   timerLDR += 1;
@@ -310,5 +411,13 @@ void IRAM_ATTR onTimer() {
   timerRadar += 1;
   timerPulsador += 1;
   timerDisplay += 1;
-  timerMensajes += 1;
+ 
+
+  timerBoton1 += 1;
+  timerBoton2 += 1;
+  timerBoton3 += 1;
+  timerBoton4 += 1;
+  timerBoton5 += 1;
+
+   //timerMensajes += 1;
 }
