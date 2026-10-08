@@ -97,6 +97,7 @@ volatile int timerRadar = 0;
 volatile int timerPulsador = 0;
 volatile int timerDisplay = 0;
 volatile int timerMensajes = 0;
+volatile int timerRelay = 0;
 
 volatile int timerBoton1 = 0;
 volatile int timerBoton2 = 0;
@@ -217,7 +218,7 @@ void loop() {
   lecturaOpto();
   lecturaRadar();
   display();
-  
+  relay();
   pulsadores();
 }
 
@@ -401,6 +402,19 @@ void pulsadores() {
 
 }
 
+void relay (){
+
+  if (timerRelay >= 1000){
+    if (RELAY_PIN == LOW){
+      digitalWrite(RELAY_PIN, HIGH);
+    } else {
+      digitalWrite (RELAY_PIN, LOW);
+    }
+
+    timerRelay = 0;
+  }
+
+}
 void IRAM_ATTR onTimer() {
    
   timerBMP += 1;
@@ -411,6 +425,7 @@ void IRAM_ATTR onTimer() {
   timerRadar += 1;
   timerPulsador += 1;
   timerDisplay += 1;
+  timerRelay += 1;
  
 
   timerBoton1 += 1;
