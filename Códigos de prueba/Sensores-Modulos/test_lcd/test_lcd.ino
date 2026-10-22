@@ -5,16 +5,17 @@
 #include <LiquidCrystal_I2C.h>
 
 // Definición pinout
-#define SCL_PIN 21
-#define SDA_PIN 22
+#define SCL_PIN 12
+#define SDA_PIN 13
 
 // Configuración del LCD
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-String texto = "Hello World!";
+String texto = "Hello Wod!";
 
 void setup() {
   // Wire.begin
   Wire.begin(SDA_PIN, SCL_PIN);
+  Wire.setClock(100000);
   Serial.begin(115200);
 
   lcd.init();

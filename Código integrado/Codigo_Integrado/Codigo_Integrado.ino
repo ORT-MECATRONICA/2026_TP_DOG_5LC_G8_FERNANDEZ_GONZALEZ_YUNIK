@@ -230,7 +230,7 @@ void lecturaBMP() {
     temperatura = bmp.readTemperature();
     presion = bmp.readPressure();
 
-    /*
+    
     Serial.print(F("Temperatura = "));
     Serial.print(temperatura);
     Serial.println(" *C");
@@ -238,7 +238,7 @@ void lecturaBMP() {
     Serial.print(F("Presión = "));
     Serial.print(presion);
     Serial.println(" Pa");
-    */
+    
 
     timerBMP = 0;
   }
@@ -282,12 +282,12 @@ void lecturaGas() {
     int lecturaGas = analogRead(GAS_PIN);
     // int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
     int mapeoLecturaGas = map(lecturaGas, 0, 4095, 0, 100);
-    /*
+    
     Serial.print("Lectura GAS sin mapear: ");
     Serial.println(lecturaGas);
     Serial.print("Lectura GAS en porcentaje: ");
     Serial.println(mapeoLecturaGas);
-    */
+    
 
     timerGas = 0;
   }
@@ -300,9 +300,9 @@ void lecturaOpto() {
 
     // Lógica inversa: LOW significa que hay 12V en la entrada
     if (estado == LOW) {
-      //Serial.println("Señal de 12V DETECTADA");
+      Serial.println("Señal de 12V DETECTADA");
     } else {
-      //Serial.println("Sin señal (0V)");
+      Serial.println("Sin señal (0V)");
     }
     timerOpto = 0;
   }
@@ -318,26 +318,10 @@ void lecturaRadar() {
       if (radar.presenceDetected()) {
         Serial.print("[PRESENCIA DETECTADA] -> ");
 
-        if (radar.stationaryTargetDetected()) {
-
-          distanciaRadar = radar.stationaryTargetDistance();
-
-          energiaRadar = radar.stationaryTargetEnergy();
-
-          personaDetectada = "QUIETO";
-        }
-
-        if (radar.movingTargetDetected()) {
-
-          distanciaRadar = radar.movingTargetDistance();
-
-          energiaRadar = radar.movingTargetEnergy();
-
-          personaDetectada = "MOV";
-        }
         Serial.println();
       } else {
-
+        
+        Serial.print(" No hay presencia ");
         personaDetectada = "N/A";
       }
     }
