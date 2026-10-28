@@ -9,41 +9,61 @@
 #define DIRECCION_WIFI "MECA-IoT-V2"
 #define CONTRASENA_WIFI "IoT$2026"
 
-#define BOT_TOKEN "8438715881:AAFf6t6TPPEJZA0VLe90II4_dTmAOmxJ0C0"
-#define CHAT_ID "8189001815"
+// Reemplazar con las credenciales
+#define BOT_TOKEN "***"
+#define CHAT_ID "***"
 
 WiFiClientSecure client;
 UniversalTelegramBot bot(BOT_TOKEN, client);
 
 typedef enum {
-  WIFI_DESCONECTADO,
-    WIFI_CONECTADO
+  WIFI_INICIANDO,
+  WIFI_ESPERANDO_CONEXION,
+  WIFI_CONECTADO
 } WIFI_t;
 
-WIFI_t WIFI = WIFI_DESCONECTADO;
+WIFI_t estadoWifi = WIFI_INICIANDO;
 
 void setup() {
-
   Serial.begin(115200);
+  
+  // Configuración inicial del Wi-Fi y certificado de Telegram
+  WiFi.mode(WIFI_STA);
+  client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
+}
 
-  switch (WIFI) {
-    case WIFI_DESCONECTADO:
-      WiFi.mode(WIFI_STA);
+void loop() {
+  // Máquina de estados no bloqueante para el Wi-Fi
+  switch (estadoWifi) {
+    case WIFI_INICIANDO:
+      Serial.println("Iniciando conexión Wi-Fi...");
       WiFi.begin(DIRECCION_WIFI, CONTRASENA_WIFI);
-      client.setCACert(TELEGRAM_CERTIFICATE_ROOT);  // Add root certificate for api.telegram.org
+      estadoWifi = WIFI_ESPERANDO_CONEXION;
+      break;
+
+    case WIFI_ESPERANDO_CONEXION:
+      // Comprobación rápida sin bloquear la ejecución del loop
       if (WiFi.status() == WL_CONNECTED) {
-        WIFI = WIFI_CONECTADO;
+        Serial.println("\nWi-Fi conectado con éxito!");
+        Serial.print("Dirección IP: ");
+        Serial.println(WiFi.localIP());
+        
+        estadoWifi = WIFI_CONECTADO;
+        
+        // Enviar el mensaje solo una vez al conectarse
+        bot.sendMessage(CHAT_ID, "Se activó BOT", "");
       }
       break;
 
     case WIFI_CONECTADO:
-      bot.sendMessage(CHAT_ID, "Se activó BOT", "");
+      // Si la conexión se pierde en algún momento, volvemos a intentar
+      if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("Conexión perdida. Reintentando...");
+        estadoWifi = WIFI_INICIANDO;
+      }
       break;
   }
 
-
-}
-
-void loop() {
-  // put your main code here, to run repeatedly:
+  // --- Tu código principal va aquí ---
+  // El loop sigue ejecutándose libremente en cada ciclo sin pausar nada.
 }
