@@ -230,18 +230,20 @@ void loop() {
   valorGas = lecturaGas();
   opto = lecturaOpto();
   presencia = lecturaRadar();
- corriente = lecturaINA219();
+  corriente = lecturaINA219();
   display();
   relay();
   */
 
-  BMP = lecturaBMP();
-  temperatura = BMP.temperatura;
-  presion = BMP.presion;
 
+
+  //Serial.println(presencia);
+  relay();
   display();
+  valorLuz = lecturaLDR();
+  presencia = lecturaRadar();
   pulsadores();
-  //mensajes();
+  // mensajes();
 }
 
 
@@ -332,16 +334,10 @@ float lecturaGas() {
 bool lecturaOpto() {
 
   if (timerOpto >= TIEMPO_LECTURA_OPTO) {
-    int estado = digitalRead(OPTO_PIN);
+    bool estado = digitalRead(OPTO_PIN);
+    return estado;
 
-    // Lógica inversa: LOW significa que hay 12V en la entrada
-    if (estado == LOW) {
-      return 1;
-
-    } else {
-      return 0;
-    }
-
+    // LOW --> 12V - HIGH --> 0V
     timerOpto = 0;
   }
 }
@@ -353,13 +349,11 @@ bool lecturaRadar() {
     if (radar.isConnected()) {
       static uint32_t ultimoEnvio = 0;
 
-      if (radar.presenceDetected()) {
-        return 1;
-      } else {
-        return 0;
-      }
+      bool boolRadar = radar.presenceDetected();
+      return boolRadar;
+
+      timerRadar = 0;
     }
-    timerRadar = 0;
   }
 }
 
@@ -367,9 +361,9 @@ void display() {
   if (timerDisplay >= TIEMPO_REFRESH_DISPLAY) {
     lcd.clear();
     lcd.setCursor(0, 0);
-    lcd.print(temperatura);
+    lcd.print(valorLuz);
     lcd.setCursor(0, 1);
-    lcd.print(presion);
+    lcd.print(presencia);
     timerDisplay = 0;
   }
 }
@@ -399,6 +393,9 @@ void mensajes() {
 
     Serial.print("PRESENCIA: ");
     Serial.println(presencia);
+
+    Serial.print("relay pin: ");
+    Serial.println(digitalRead(RELAY_PIN));
 
     timerMensajes = 0;
   }

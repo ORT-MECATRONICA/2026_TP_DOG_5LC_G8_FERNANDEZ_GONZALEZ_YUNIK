@@ -38,28 +38,9 @@ void loop() {
     if (millis() - ultimoEnvio > 1000) {
       ultimoEnvio = millis();
 
-      if (radar.presenceDetected()) {
-        Serial.print("[PRESENCIA DETECTADA] -> ");
-
-        if (radar.stationaryTargetDetected()) {
-          Serial.print("Objetivo Estático: ");
-          Serial.print(radar.stationaryTargetDistance());
-          Serial.print(" cm (Energía: ");
-          Serial.print(radar.stationaryTargetEnergy());
-          Serial.print(") | ");
-        }
-
-        if (radar.movingTargetDetected()) {
-          Serial.print("Objetivo en Movimiento: ");
-          Serial.print(radar.movingTargetDistance());
-          Serial.print(" cm (Energía: ");
-          Serial.print(radar.movingTargetEnergy());
-          Serial.print(")");
-        }
+        Serial.println(radar.presenceDetected());
         Serial.println();
-      } else {
-        Serial.println("[---] Sin presencia humana detectada.");
-      }
+
     }
   }
 }
