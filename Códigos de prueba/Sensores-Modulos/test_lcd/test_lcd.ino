@@ -5,7 +5,7 @@
 #include <LiquidCrystal_I2C.h>
 
 // Definición pinout
-#define SCL_PIN 12
+#define SCL_PIN 27
 #define SDA_PIN 13
 
 // Configuración del LCD

@@ -66,9 +66,9 @@
 
 // Configuración de actuadores
 
-Adafruit_BMP280 bmp(&Wire1);                 // I2C
-Adafruit_INA219 ina219;              // ina219
-ld2410 radar;                        // ld2410
+Adafruit_BMP280 bmp(&Wire1);  // I2C
+Adafruit_INA219 ina219;       // ina219
+ld2410 radar;                 // ld2410
 
 // corregir bus i2c
 LiquidCrystal_I2C lcd(0x27, 16, 2);  // LCD
@@ -137,11 +137,12 @@ void setup() {
   pinMode(LED_PIN_2, OUTPUT);
 
   pinMode(RELAY_PIN, OUTPUT);
-  
+
   Wire.begin(SDA_PIN_A, SCL_PIN_A);
   Wire1.begin(SDA_PIN_B, SCL_PIN_B, 100000);
+  Wire.setClock(100000);
 
- 
+
   pinMode(BUTTON_PIN_1, INPUT_PULLUP);
   pinMode(BUTTON_PIN_2, INPUT_PULLUP);
   pinMode(BUTTON_PIN_3, INPUT_PULLUP);
@@ -151,7 +152,7 @@ void setup() {
   Serial.begin(BAUD);
 
   // Establecer LCD
-  lcd.init();
+  lcd.begin();
   lcd.backlight();
 
   // Primera imrpesión de pantalla
@@ -210,7 +211,7 @@ void setup() {
 void loop() {
 
   // Lectura de actuadores.
-  
+
   lecturaBMP();
   lecturaINA219();
   lecturaLDR();
@@ -230,7 +231,7 @@ void lecturaBMP() {
     temperatura = bmp.readTemperature();
     presion = bmp.readPressure();
 
-    
+
     Serial.print(F("Temperatura = "));
     Serial.print(temperatura);
     Serial.println(" *C");
@@ -238,7 +239,7 @@ void lecturaBMP() {
     Serial.print(F("Presión = "));
     Serial.print(presion);
     Serial.println(" Pa");
-    
+
 
     timerBMP = 0;
   }
@@ -256,7 +257,7 @@ void lecturaINA219() {
     Serial.print("mA");
     Serial.println(" ");
     */
-  
+
     timerINA219 = 0;
   }
 }
@@ -282,12 +283,12 @@ void lecturaGas() {
     int lecturaGas = analogRead(GAS_PIN);
     // int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
     int mapeoLecturaGas = map(lecturaGas, 0, 4095, 0, 100);
-    
+
     Serial.print("Lectura GAS sin mapear: ");
     Serial.println(lecturaGas);
     Serial.print("Lectura GAS en porcentaje: ");
     Serial.println(mapeoLecturaGas);
-    
+
 
     timerGas = 0;
   }
@@ -320,7 +321,7 @@ void lecturaRadar() {
 
         Serial.println();
       } else {
-        
+
         Serial.print(" No hay presencia ");
         personaDetectada = "N/A";
       }
@@ -382,25 +383,22 @@ void pulsadores() {
       }
     }
   }
-
-
 }
 
-void relay (){
+void relay() {
 
-  if (timerRelay >= 1000){
-    if (RELAY_PIN == LOW){
+  if (timerRelay >= 1000) {
+    if (RELAY_PIN == LOW) {
       digitalWrite(RELAY_PIN, HIGH);
     } else {
-      digitalWrite (RELAY_PIN, LOW);
+      digitalWrite(RELAY_PIN, LOW);
     }
 
     timerRelay = 0;
   }
-
 }
 void IRAM_ATTR onTimer() {
-   
+
   timerBMP += 1;
   timerINA219 += 1;
   timerLDR += 1;
@@ -410,7 +408,7 @@ void IRAM_ATTR onTimer() {
   timerPulsador += 1;
   timerDisplay += 1;
   timerRelay += 1;
- 
+
 
   timerBoton1 += 1;
   timerBoton2 += 1;
@@ -418,5 +416,5 @@ void IRAM_ATTR onTimer() {
   timerBoton4 += 1;
   timerBoton5 += 1;
 
-   //timerMensajes += 1;
+  //timerMensajes += 1;
 }
