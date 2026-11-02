@@ -231,7 +231,7 @@ void loop() {
   opto = lecturaOpto();
   presencia = lecturaRadar();
   corriente = lecturaINA219();
-  display();
+ 
   relay();
   */
 
