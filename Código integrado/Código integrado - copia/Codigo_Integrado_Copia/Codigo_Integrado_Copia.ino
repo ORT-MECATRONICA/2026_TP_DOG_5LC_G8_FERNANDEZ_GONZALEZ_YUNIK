@@ -29,7 +29,7 @@
 #define TIEMPO_LECTURA_MQ 500
 #define TIEMPO_LECTURA_OPTO 100
 #define TIEMPO_LECTURA_RADAR 1000
-#define TIEMPO_REFRESH_DISPLAY 200
+#define TIEMPO_REFRESH_DISPLAY 100
 #define TIEMPO_MENSAJES 2000
 #define TIEMPO_DEBOUNCE 50
 
@@ -68,14 +68,19 @@ enum estadosDisplay {
   INIT,
   TEMP_PRESION,
   LUZ,
-  HUMEDAD,
   GAS,
   PRESENCIA,
   OPTO,
-  CORRIENTE
+  CORRIENTE,
+  VALOR_TEMP,
+  VALOR_PRESION,
+  VALOR_LUZ,
+  VALOR_GAS,
+  VALOR_CORRIENTE,
 } estadosDisplay_t;
 
 estadosDisplay pantalla = INIT;
+estadosDisplay pantallaAnterior;
 // 2. Crear una variable para guardar el estado actual
 
 // Configuración de actuadores
@@ -106,11 +111,16 @@ float presion = 0;
 float valorLuz = 0;
 float valorGas = 0;
 
+// UMBRALES
+float umbralTemperatura = 25;
+float umbralPresion = 1000;
+float umbralLuz = 100;
+float umbralGas = 100;
+float umbralCorriente = 1000;  //mA
+
+
 bool presencia = 0;
 bool opto = 0;
-
-// test variable
-int contador = 0;
 
 // VARIABLES timer
 volatile int timerBMP = 0;
@@ -152,8 +162,19 @@ bool estadoBoton4 = HIGH;
 bool ultimoBoton5 = HIGH;
 bool estadoBoton5 = HIGH;
 
+bool pulsacionBoton1;
+bool pulsacionBoton2;
+bool pulsacionBoton3;
+bool pulsacionBoton4;
+bool pulsacionBoton5;
 
+bool lectura1;
+bool lectura2;
+bool lectura3;
+bool lectura4;
+bool lectura5;
 
+// Función Setup
 void setup() {
 
   pinMode(GAS_PIN, INPUT);
@@ -237,28 +258,21 @@ void setup() {
 void loop() {
 
   // Lectura de actuadores.
-  /*
+
   BMP = lecturaBMP();
   temperatura = BMP.temperatura;
   presion = BMP.presion;
- 
+
   valorLuz = lecturaLDR();
   valorGas = lecturaGas();
   opto = lecturaOpto();
   presencia = lecturaRadar();
   corriente = lecturaINA219();
- 
+
   relay();
-  */
 
-
-
-  //Serial.println(presencia);
-  relay();
   display();
-  valorLuz = lecturaLDR();
-  presencia = lecturaRadar();
-  //pulsadores();
+  pulsadores();
 }
 
 
@@ -272,23 +286,8 @@ datosBMP lecturaBMP() {
     bmpPack.temperatura = bmp.readTemperature();
     bmpPack.presion = bmp.readPressure();
 
-
-    /*
-   
-   Serial.print(F("Temperatura = "));
-    Serial.print(temperatura);
-    Serial.println(" *C");
-
-    Serial.print(F("Presión = "));
-    Serial.print(presion);
-    Serial.println(" Pa");
-    
-    */
-
-    return bmpPack;
-
-
     timerBMP = 0;
+    return bmpPack;
   }
 }
 
@@ -298,15 +297,9 @@ float lecturaINA219() {
     // leer valores
     float valorCorriente = ina219.getCurrent_mA();
 
-    // imprimir corriente
-    /*  Serial.print("Corriente del LED: ");
-    Serial.print(corriente);
-    Serial.print("mA");
-    Serial.println(" ");
-    */
-    return valorCorriente;
 
     timerINA219 = 0;
+    return valorCorriente;
   }
 }
 
@@ -319,14 +312,9 @@ float lecturaLDR() {
     float valorLDR = analogRead(LDR_PIN);
     // int mapeoLectura = (lectura / 4095) * 100;  // 4095 es el valor máximo que puede leer el ADC del ESP32
     float mapeoLecturaLDR = map(valorLDR, 0, 4095, 100, 0);
-    /*
-    Serial.print("Lectura LDR: ");
-    Serial.println(valorLDR);
-    Serial.print("Lectura LDR en porcentaje: ");
-    Serial.println(mapeoLecturaLDR);
-    */
-    return mapeoLecturaLDR;
+
     timerLDR = 0;
+    return mapeoLecturaLDR;
   }
 }
 
@@ -336,13 +324,9 @@ float lecturaGas() {
     float lecturaGas = analogRead(GAS_PIN);
     float mapeoLecturaGas = map(lecturaGas, 0, 4095, 0, 100);
 
-    Serial.print("Lectura GAS sin mapear: ");
-    Serial.println(lecturaGas);
-    Serial.print("Lectura GAS en porcentaje: ");
-    Serial.println(mapeoLecturaGas);
 
-    return mapeoLecturaGas;
     timerGas = 0;
+    return mapeoLecturaGas;
   }
 }
 
@@ -350,10 +334,11 @@ bool lecturaOpto() {
 
   if (timerOpto >= TIEMPO_LECTURA_OPTO) {
     bool estado = digitalRead(OPTO_PIN);
-    return estado;
+
 
     // LOW --> 12V - HIGH --> 0V
     timerOpto = 0;
+    return estado;
   }
 }
 
@@ -365,52 +350,296 @@ bool lecturaRadar() {
       static uint32_t ultimoEnvio = 0;
 
       bool boolRadar = radar.presenceDetected();
-      return boolRadar;
-
       timerRadar = 0;
+      return boolRadar;
     }
   }
 }
 
 void display() {
+
   if (timerDisplay >= TIEMPO_REFRESH_DISPLAY) {
-
-    switch (pantalla) {
-      case INIT:
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print("1: VISUALIZAR");
-        lcd.setCursor(0, 1);
-        lcd.print("2: MODIFICAR");
-        
-        if (lectura1 == LOW )
-          }
-        }
-
-        break;
-      case TEMP_PRESION:
-        lcd.clear();
-        lcd.setCursor(0, 0);
-        lcd.print(temperatura);
-        lcd.setCursor(0, 1);
-        lcd.print(presion);
-        break;
+    if (pantalla != pantallaAnterior) {
+      lcd.clear();
+      pantallaAnterior = pantalla;
     }
-    timerDisplay = 0;
+  }
+
+  switch (pantalla) {
+    case INIT:
+
+
+      lcd.setCursor(0, 0);
+      lcd.print("1: VISUALIZAR");
+      lcd.setCursor(0, 1);
+      lcd.print("2: MODIFICAR");
+
+      if (pulsacionBoton1) {
+        pantalla = TEMP_PRESION;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = VALOR_TEMP;
+        pulsacionBoton2 = false;
+      }
+
+
+      break;
+    case TEMP_PRESION:
+
+      lcd.setCursor(0, 0);
+      lcd.print("Temp: " + String(temperatura) + " C");
+      lcd.setCursor(0, 1);
+      lcd.print("Presion: " + String(presion));
+
+      if (pulsacionBoton1) {
+        pantalla = LUZ;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = OPTO;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      }
+      break;
+
+    case LUZ:
+
+      lcd.setCursor(0, 0);
+      lcd.print("Valor Luz: ");
+      lcd.setCursor(0, 1);
+      lcd.print(valorLuz);
+
+      if (pulsacionBoton1) {
+        pantalla = GAS;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = TEMP_PRESION;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      }
+      break;
+
+    case GAS:
+
+      lcd.setCursor(0, 0);
+      lcd.print("Valor Gas: ");
+      lcd.setCursor(0, 1);
+      lcd.print(valorGas);
+
+      if (pulsacionBoton1) {
+        pantalla = PRESENCIA;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = LUZ;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      }
+      break;
+
+    case PRESENCIA:
+
+      if (presencia == 0) {
+
+
+        lcd.setCursor(0, 0);
+        lcd.print("Presencia:");
+        lcd.setCursor(0, 1);
+        lcd.print("NO");
+      } else {
+
+
+        lcd.setCursor(0, 0);
+        lcd.print("Presencia:");
+        lcd.setCursor(0, 1);
+        lcd.print("SI");
+      }
+
+
+      if (pulsacionBoton1) {
+        pantalla = CORRIENTE;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = GAS;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      }
+      break;
+
+    case CORRIENTE:
+
+      lcd.setCursor(0, 0);
+      lcd.print("Corriente:");
+      lcd.setCursor(0, 1);
+      lcd.print(corriente);
+
+
+
+      if (pulsacionBoton1) {
+        pantalla = OPTO;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = PRESENCIA;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      }
+
+      break;
+
+    case OPTO:
+
+      lcd.setCursor(0, 0);
+      lcd.print("Opto:");
+      lcd.setCursor(0, 1);
+      lcd.print(opto);
+
+
+
+      if (pulsacionBoton1) {
+        pantalla = TEMP_PRESION;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = CORRIENTE;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      }
+      break;
+    case VALOR_TEMP:
+
+      // RANGO DE UMBRAL DE TEMPERATURA --> -40°C a 80°C
+      lcd.setCursor(0, 0);
+      lcd.print("Temp: " + String(umbralTemperatura));
+
+      if (pulsacionBoton1) {
+        pantalla = VALOR_PRESION;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = VALOR_CORRIENTE;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      } else if (pulsacionBoton4) {
+        if (umbralTemperatura < 80) { umbralTemperatura++; }
+        pulsacionBoton4 = false;
+      } else if (pulsacionBoton5) {
+        if (umbralTemperatura > -40) { umbralTemperatura--; }
+        pulsacionBoton5 = false;
+      }
+      break;
+    case VALOR_PRESION:
+
+      // RANGO DE UMBRAL DE PRESION --> 0 Pa a 200 hPa
+      lcd.setCursor(0, 0);
+      lcd.print("Pa: " + String(umbralPresion));
+
+      if (pulsacionBoton1) {
+        pantalla = VALOR_LUZ;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = VALOR_TEMP;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      } else if (pulsacionBoton4) {
+        if (umbralPresion < 200) { umbralPresion++; }
+        pulsacionBoton4 = false;
+      } else if (pulsacionBoton5) {
+        if (umbralPresion > 0) { umbralPresion--; }
+        pulsacionBoton5 = false;
+      }
+      break;
+
+    case VALOR_LUZ:
+
+      // RANGO DE UMBRAL DE LUZ --> 0% a 100%
+      lcd.setCursor(0, 0);
+      lcd.print("Luz: " + String(umbralLuz));
+
+      if (pulsacionBoton1) {
+        pantalla = VALOR_GAS;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = VALOR_PRESION;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      } else if (pulsacionBoton4) {
+        if (umbralLuz < 100) { umbralLuz++; }
+        pulsacionBoton4 = false;
+      } else if (pulsacionBoton5) {
+        if (umbralLuz > 0) { umbralLuz--; }
+        pulsacionBoton5 = false;
+      }
+      break;
+
+    case VALOR_GAS:
+
+      // RANGO DE UMBRAL DE GAS --> 0% a 100%
+      lcd.setCursor(0, 0);
+      lcd.print("Gas: " + String(umbralGas));
+
+      if (pulsacionBoton1) {
+        pantalla = VALOR_CORRIENTE;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = VALOR_LUZ;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      } else if (pulsacionBoton4) {
+        if (umbralGas < 100) { umbralGas++; }
+        pulsacionBoton4 = false;
+      } else if (pulsacionBoton5) {
+        if (umbralGas > 0) { umbralGas--; }
+        pulsacionBoton5 = false;
+      }
+      break;
+
+    case VALOR_CORRIENTE:
+
+      // RANGO DE UMBRAL DE corriente --> 0mA a 5000mA
+      lcd.setCursor(0, 0);
+      lcd.print("Corriente: " + String(umbralCorriente));
+
+      if (pulsacionBoton1) {
+        pantalla = VALOR_TEMP;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = VALOR_GAS;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      } else if (pulsacionBoton4) {
+        if (umbralCorriente < 5000) { umbralCorriente = umbralCorriente + 100; }
+        pulsacionBoton4 = false;
+      } else if (pulsacionBoton5) {
+        if (umbralCorriente > 0) { umbralCorriente = umbralCorriente - 100; }
+        pulsacionBoton5 = false;
+      }
+      break;
   }
 }
-
-// incompleto
-
-
-
-
 void pulsadores() {
-  bool lectura1 = digitalRead(BUTTON_PIN_1);
-  bool lectura2 = digitalRead(BUTTON_PIN_2);
-  bool lectura3 = digitalRead(BUTTON_PIN_3);
-  bool lectura4 = digitalRead(BUTTON_PIN_4);
-  bool lectura5 = digitalRead(BUTTON_PIN_5);
+  lectura1 = digitalRead(BUTTON_PIN_1);
+  lectura2 = digitalRead(BUTTON_PIN_2);
+  lectura3 = digitalRead(BUTTON_PIN_3);
+  lectura4 = digitalRead(BUTTON_PIN_4);
+  lectura5 = digitalRead(BUTTON_PIN_5);
 
   if (lectura1 != ultimoBoton1) {
 
@@ -425,10 +654,7 @@ void pulsadores() {
       estadoBoton1 = lectura1;
 
       if (estadoBoton1 == LOW) {
-        digitalWrite(LED_PIN_1, HIGH);
-
-      } else {
-        digitalWrite(LED_PIN_1, LOW);
+        pulsacionBoton1 = true;
       }
     }
   }
@@ -446,10 +672,7 @@ void pulsadores() {
       estadoBoton2 = lectura2;
 
       if (estadoBoton2 == LOW) {
-        digitalWrite(LED_PIN_2, HIGH);
-
-      } else {
-        digitalWrite(LED_PIN_2, LOW);
+        pulsacionBoton2 = true;
       }
     }
   }
@@ -466,10 +689,9 @@ void pulsadores() {
 
       estadoBoton3 = lectura3;
 
-      if (estadoBoton3 == LOW) {
-        contador++;
 
-      } else {
+      if (estadoBoton3 == LOW) {
+        pulsacionBoton3 = true;
       }
     }
   }
@@ -484,12 +706,10 @@ void pulsadores() {
 
     if (lectura4 != estadoBoton4) {
 
-      estadoBoton4 = lectura4;
+      estadoBoton4 = lectura1;
 
       if (estadoBoton4 == LOW) {
-        contador--;
-
-      } else {
+        pulsacionBoton4 = true;
       }
     }
   }
@@ -507,9 +727,7 @@ void pulsadores() {
       estadoBoton5 = lectura5;
 
       if (estadoBoton5 == LOW) {
-        contador = contador + 2;
-
-      } else {
+        pulsacionBoton5 = true;
       }
     }
   }
@@ -520,8 +738,10 @@ void relay() {
   if (timerRelay >= 1000) {
     if (RELAY_PIN == LOW) {
       digitalWrite(RELAY_PIN, HIGH);
+      Serial.println("Relay HIGH");
     } else {
       digitalWrite(RELAY_PIN, LOW);
+      Serial.println("Relay LOW");
     }
 
     timerRelay = 0;
@@ -536,8 +756,8 @@ void IRAM_ATTR onTimer() {
   timerOpto += 1;
   timerRadar += 1;
   timerPulsador += 1;
-  timerDisplay += 1;
   timerRelay += 1;
+  timerDisplay += 1;
 
   timerBoton1 += 1;
   timerBoton2 += 1;
