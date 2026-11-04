@@ -1,7 +1,15 @@
 // ST - TP DOG - Grupo 8 - Santiago Fernández, Paulina Gonzalez y Avner Yunik
 
 /*
-  Código de prueba integrador de sensores y módulos. Incluirá
+  Código de prueba final. Aparte de lo presente en el integrador, incluirá:
+
+  MQTT
+  Wifi configurado
+  Telegram --> advertencia de umbral + datos que pide el usuario.
+  LEDS ante umbral
+  Hora GMT configurable
+
+  Contiene:
     • LCD 16x2
     • MQ FLYING FISH
     • BMP 280
@@ -20,7 +28,19 @@
 #include <Wire.h>
 #include <SPI.h>
 
+#include "time.h"
+#include <WiFi.h>
+#include "AsyncMqttClient.h"
+
 #define BAUD 115200
+
+// MQTT
+#define MQTT_HOST IPAddress(192, 168, 10, 151)  ///se debe cambiar por el ip de meca o hall del 4
+#define MQTT_PORT 1884
+#define MQTT_USERNAME "esp32"
+#define MQTT_PASSWORD "mirko15"
+#define MQTT_PUB "/esp32/datos_sensores"
+
 
 // Tiempo lectura
 #define TIEMPO_LECTURA_BMP 2000
@@ -32,6 +52,8 @@
 #define TIEMPO_REFRESH_DISPLAY 100
 #define TIEMPO_MENSAJES 2000
 #define TIEMPO_DEBOUNCE 50
+#define TIEMPO_ENVIO_MQTT 30000
+#define TIEMPO_LECTURA_MQTT 60000
 
 // pinout
 #define OPTO_PIN 39
@@ -58,7 +80,6 @@
 #define BUTTON_PIN_5 21
 
 
-
 // Configuración de pines UART2 en ESP32
 // LD2410C,
 #define RXD2 16
@@ -72,16 +93,55 @@ enum estadosDisplay {
   PRESENCIA,
   OPTO,
   CORRIENTE,
+  HORA,
   VALOR_TEMP,
   VALOR_PRESION,
   VALOR_LUZ,
   VALOR_GAS,
   VALOR_CORRIENTE,
+  VALOR_HORA,
 } estadosDisplay_t;
 
 estadosDisplay pantalla = INIT;
 estadosDisplay pantallaAnterior;
 // 2. Crear una variable para guardar el estado actual
+
+// Configuración wifi
+char* ssid = "MECA-IoT-V2";
+char* password = "IoT$2026";
+
+// Configuración mqtt
+const uint8_t name_device = 138;
+
+char mqtt_payload[150];
+AsyncMqttClient mqttClient;
+TimerHandle_t mqttReconnectTimer;
+TimerHandle_t wifiReconnectTimer;
+
+typedef struct
+{
+  long time;
+  float temperatura;  ///temp en grados
+  float presion;  ///valor presion entre 0 y 99 
+  float valorLuz;  ///valor entre 0 y 99 . si hay luz es cercano al 100 
+  float valorGas; ///valor gas entre 0 y 99 
+  float corriente; ///valor corriente entre 0 y 99
+  bool presencia; ///Lectura sensores de presencia 1 presencia 0 no presencia
+  bool octo; ///Lectura sensores de presencia 1 presencia 0 no presencia
+  bool alarma; // si se supera un umbral
+
+} estructura;
+
+const int valor_max_struct = 1000;          ///valor vector de struct
+estructura datos_struct[valor_max_struct];  ///Guardo valores hasta que lo pueda enviar
+estructura aux2;
+
+
+// Configuración tiempo
+long unsigned int timestamp;  // hora
+const char* ntpServer = "south-america.pool.ntp.org";
+const long gmtOffset_sec = -10800;
+const int daylightOffset_sec = 0;
 
 // Configuración de actuadores
 
@@ -121,6 +181,7 @@ float umbralCorriente = 1000;  //mA
 
 bool presencia = 0;
 bool opto = 0;
+bool emergencia = 0;
 
 // VARIABLES timer
 volatile int timerBMP = 0;
@@ -142,7 +203,7 @@ volatile int timerBoton5 = 0;
 
 
 // TIMER
-hw_timer_t *timer = NULL;  // timer
+hw_timer_t* timer = NULL;  // timer
 void IRAM_ATTR onTimer();  // function interrupts every 1msD
 
 // Estados botones
