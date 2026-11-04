@@ -64,6 +64,20 @@
 #define RXD2 16
 #define TXD2 17
 
+enum estadosDisplay {
+  INIT,
+  TEMP_PRESION,
+  LUZ,
+  HUMEDAD,
+  GAS,
+  PRESENCIA,
+  OPTO,
+  CORRIENTE
+} estadosDisplay_t;
+
+estadosDisplay pantalla = INIT;
+// 2. Crear una variable para guardar el estado actual
+
 // Configuración de actuadores
 
 Adafruit_BMP280 bmp(&Wire1);  // I2C
@@ -115,6 +129,8 @@ volatile int timerBoton2 = 0;
 volatile int timerBoton3 = 0;
 volatile int timerBoton4 = 0;
 volatile int timerBoton5 = 0;
+
+
 // TIMER
 hw_timer_t *timer = NULL;  // timer
 void IRAM_ATTR onTimer();  // function interrupts every 1msD
@@ -242,8 +258,7 @@ void loop() {
   display();
   valorLuz = lecturaLDR();
   presencia = lecturaRadar();
-  pulsadores();
-  // mensajes();
+  //pulsadores();
 }
 
 
@@ -359,47 +374,34 @@ bool lecturaRadar() {
 
 void display() {
   if (timerDisplay >= TIEMPO_REFRESH_DISPLAY) {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(valorLuz);
-    lcd.setCursor(0, 1);
-    lcd.print(presencia);
+
+    switch (pantalla) {
+      case INIT:
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("1: VISUALIZAR");
+        lcd.setCursor(0, 1);
+        lcd.print("2: MODIFICAR");
+        
+        if (lectura1 == LOW )
+          }
+        }
+
+        break;
+      case TEMP_PRESION:
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print(temperatura);
+        lcd.setCursor(0, 1);
+        lcd.print(presion);
+        break;
+    }
     timerDisplay = 0;
   }
 }
 
 // incompleto
 
-void mensajes() {
-
-  if (timerMensajes >= TIEMPO_MENSAJES) {
-    Serial.print("Temperatura: ");
-    Serial.println(temperatura);
-
-    Serial.print("Presion: ");
-    Serial.println(presion);
-
-    Serial.print("Corriente: ");
-    Serial.println(corriente);
-
-    Serial.print("Valor luz: ");
-    Serial.println(valorLuz);
-
-    Serial.print("Valor Gas: ");
-    Serial.println(valorGas);
-
-    Serial.print("OPTO: ");
-    Serial.println(opto);
-
-    Serial.print("PRESENCIA: ");
-    Serial.println(presencia);
-
-    Serial.print("relay pin: ");
-    Serial.println(digitalRead(RELAY_PIN));
-
-    timerMensajes = 0;
-  }
-}
 
 
 
@@ -536,7 +538,6 @@ void IRAM_ATTR onTimer() {
   timerPulsador += 1;
   timerDisplay += 1;
   timerRelay += 1;
-
 
   timerBoton1 += 1;
   timerBoton2 += 1;
