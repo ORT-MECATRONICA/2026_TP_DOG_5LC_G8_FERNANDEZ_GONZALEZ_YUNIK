@@ -25,7 +25,7 @@
 // Tiempo lectura
 #define TIEMPO_LECTURA_BMP 2000
 #define TIEMPO_LECTURA_INA219 2000
-#define TIEMPO_LECTURA_LDR 20
+#define TIEMPO_LECTURA_LDR 100
 #define TIEMPO_LECTURA_MQ 500
 #define TIEMPO_LECTURA_OPTO 100
 #define TIEMPO_LECTURA_RADAR 1000
@@ -50,12 +50,21 @@
 
 #define LED_PIN_1 23
 #define LED_PIN_2 22
+// Button Pinout change:
+/*Original pinout:
+PIN1 --> 1
+PIN2 --> 3
+PIN3 --> 5
+PIN4 --> 4
+PIN5 --> 21
 
-#define BUTTON_PIN_1 1
-#define BUTTON_PIN_2 3
+Swapped places between PIN1 and PIN2 with PIN4 and PIN5
+*/
+#define BUTTON_PIN_1 4
+#define BUTTON_PIN_2 21
 #define BUTTON_PIN_3 5
-#define BUTTON_PIN_4 4
-#define BUTTON_PIN_5 21
+#define BUTTON_PIN_4 3
+#define BUTTON_PIN_5 1
 
 
 
@@ -177,12 +186,19 @@ bool lectura5;
 // Función Setup
 void setup() {
 
+  Serial.end(); // ya que usa gpio1 como input
+  Serial0.end();
+
   pinMode(GAS_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
   pinMode(OPTO_PIN, INPUT);
 
   pinMode(LED_PIN_1, OUTPUT);
   pinMode(LED_PIN_2, OUTPUT);
+
+  // solo para comprobar que se prenden
+  digitalWrite(LED_PIN_1, HIGH);
+  digitalWrite(LED_PIN_2, HIGH);
 
   pinMode(RELAY_PIN, OUTPUT);
 
@@ -196,7 +212,7 @@ void setup() {
   pinMode(BUTTON_PIN_4, INPUT_PULLUP);
   pinMode(BUTTON_PIN_5, INPUT_PULLUP);
 
-  Serial.begin(BAUD);
+  // Serial.begin(BAUD);
 
   // Establecer LCD
   lcd.init();
@@ -213,9 +229,9 @@ void setup() {
   Serial2.begin(256000, SERIAL_8N1, RXD2, TXD2);
 
   if (radar.begin(Serial2)) {
-    Serial.println("OK: Sensor LD2410 detectado correctamente.");
+    //Serial.println("OK: Sensor LD2410 detectado correctamente.");
   } else {
-    Serial.println("ERROR: No se pudo conectar con el sensor LD2410. Revisa las conexiones.");
+    //Serial.println("ERROR: No se pudo conectar con el sensor LD2410. Revisa las conexiones.");
   }
 
 
@@ -223,9 +239,7 @@ void setup() {
   unsigned status;
   status = bmp.begin(0x76);
   if (!status) {
-    Serial.println(F("BMP No Configurado!"));
-    Serial.print("ID SENSOR: 0x");
-    Serial.println(bmp.sensorID(), 16);
+
     bmpListo = false;
   } else {
     bmpListo = true;
@@ -242,7 +256,7 @@ void setup() {
 
   // establecer INA219
   if (!ina219.begin(&Wire1)) {
-    Serial.println("No se encontró el sensor INA219");
+    // Serial.println("No se encontró el sensor INA219");
     ina219Listo = false;
   } else {
     ina219Listo = true;
@@ -252,6 +266,7 @@ void setup() {
   timer = timerBegin(1000000);  // 1 MHz = 1 µs
   timerAttachInterrupt(timer, &onTimer);
   timerAlarm(timer, 1000, true, 0);  // tick cada 1 ms
+  lcd.clear();
 }
 
 // Función Loop
@@ -659,6 +674,7 @@ void pulsadores() {
     }
   }
 
+
   if (lectura2 != ultimoBoton2) {
 
     timerBoton2 = 0;
@@ -706,7 +722,7 @@ void pulsadores() {
 
     if (lectura4 != estadoBoton4) {
 
-      estadoBoton4 = lectura1;
+      estadoBoton4 = lectura4;
 
       if (estadoBoton4 == LOW) {
         pulsacionBoton4 = true;
@@ -738,10 +754,10 @@ void relay() {
   if (timerRelay >= 1000) {
     if (RELAY_PIN == LOW) {
       digitalWrite(RELAY_PIN, HIGH);
-      Serial.println("Relay HIGH");
+      //Serial.println("Relay HIGH");
     } else {
       digitalWrite(RELAY_PIN, LOW);
-      Serial.println("Relay LOW");
+      //Serial.println("Relay LOW");
     }
 
     timerRelay = 0;

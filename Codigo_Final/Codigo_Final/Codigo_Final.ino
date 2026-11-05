@@ -9,6 +9,12 @@
   LEDS ante umbral
   Hora GMT configurable
 
+--> cosas para la expo SI O SI
+  - MQTT
+  - WIFI
+  - SENSORES
+  - LEDS (ADVERTENCIA)
+
   Contiene:
     • LCD 16x2
     • MQ FLYING FISH
@@ -54,6 +60,7 @@
 #define TIEMPO_DEBOUNCE 50
 #define TIEMPO_ENVIO_MQTT 30000
 #define TIEMPO_LECTURA_MQTT 60000
+#define TIEMPO_WIFI 500
 
 // pinout
 #define OPTO_PIN 39
@@ -85,6 +92,7 @@
 #define RXD2 16
 #define TXD2 17
 
+// estados display
 enum estadosDisplay {
   INIT,
   TEMP_PRESION,
@@ -99,12 +107,21 @@ enum estadosDisplay {
   VALOR_LUZ,
   VALOR_GAS,
   VALOR_CORRIENTE,
-  VALOR_HORA,
 } estadosDisplay_t;
 
+// estados wifi
+enum estadosWifi {
+  WIFI_CONECTANDO,
+  WIFI_CONECTADO,
+} estadosWifi_t;
+
+// variable wifi
+estadosWifi wifiConfig = WIFI_CONECTANDO;
+
+// 2. Crear una variable para guardar el estado actual
 estadosDisplay pantalla = INIT;
 estadosDisplay pantallaAnterior;
-// 2. Crear una variable para guardar el estado actual
+
 
 // Configuración wifi
 char* ssid = "MECA-IoT-V2";
@@ -118,17 +135,18 @@ AsyncMqttClient mqttClient;
 TimerHandle_t mqttReconnectTimer;
 TimerHandle_t wifiReconnectTimer;
 
+// estructura mqtt
 typedef struct
 {
   long time;
-  float temperatura;  ///temp en grados
-  float presion;  ///valor presion entre 0 y 99 
-  float valorLuz;  ///valor entre 0 y 99 . si hay luz es cercano al 100 
-  float valorGas; ///valor gas entre 0 y 99 
-  float corriente; ///valor corriente entre 0 y 99
-  bool presencia; ///Lectura sensores de presencia 1 presencia 0 no presencia
-  bool octo; ///Lectura sensores de presencia 1 presencia 0 no presencia
-  bool alarma; // si se supera un umbral
+  float T1;     ///temp en grados
+  float P1;     ///valor presion entre 0 y 99
+  float luz;    ///valor entre 0 y 99 . si hay luz es cercano al 100
+  float Gas;    ///valor gas entre 0 y 99
+  float cor;    ///valor corriente entre 0 y 99
+  bool pre;     ///Lectura sensores de presencia 1 presencia 0 no presencia
+  bool oct;     ///Lectura sensores de presencia 1 presencia 0 no presencia
+  bool Alarma;  // si se supera un umbral
 
 } estructura;
 
@@ -140,7 +158,7 @@ estructura aux2;
 // Configuración tiempo
 long unsigned int timestamp;  // hora
 const char* ntpServer = "south-america.pool.ntp.org";
-const long gmtOffset_sec = -10800;
+const long gmtOffset_sec = -3600;  // defaultt ARGENTINA
 const int daylightOffset_sec = 0;
 
 // Configuración de actuadores
@@ -170,6 +188,7 @@ float temperatura = 0;
 float presion = 0;
 float valorLuz = 0;
 float valorGas = 0;
+String tiempo;
 
 // UMBRALES
 float umbralTemperatura = 25;
@@ -177,7 +196,6 @@ float umbralPresion = 1000;
 float umbralLuz = 100;
 float umbralGas = 100;
 float umbralCorriente = 1000;  //mA
-
 
 bool presencia = 0;
 bool opto = 0;
@@ -194,6 +212,9 @@ volatile int timerPulsador = 0;
 volatile int timerDisplay = 0;
 volatile int timerMensajes = 0;
 volatile int timerRelay = 0;
+volatile int timerWifi = 0;
+volatile int timerLecturaMQTT = 0;
+volatile int timerEnvioMQTT = 0;
 
 volatile int timerBoton1 = 0;
 volatile int timerBoton2 = 0;
@@ -235,6 +256,10 @@ bool lectura3;
 bool lectura4;
 bool lectura5;
 
+///variables ingresar a la cola struct
+int indice_entra = 0;
+int indice_saca = 0;
+bool flag_vacio = 1;
 // Función Setup
 void setup() {
 
@@ -247,18 +272,25 @@ void setup() {
 
   pinMode(RELAY_PIN, OUTPUT);
 
-  Wire.begin(SDA_PIN_A, SCL_PIN_A, 100000);
-  Wire1.begin(SDA_PIN_B, SCL_PIN_B, 100000);
-
-
   pinMode(BUTTON_PIN_1, INPUT_PULLUP);
   pinMode(BUTTON_PIN_2, INPUT_PULLUP);
   pinMode(BUTTON_PIN_3, INPUT_PULLUP);
   pinMode(BUTTON_PIN_4, INPUT_PULLUP);
   pinMode(BUTTON_PIN_5, INPUT_PULLUP);
 
-  Serial.begin(BAUD);
+  Wire.begin(SDA_PIN_A, SCL_PIN_A, 100000);
+  Wire1.begin(SDA_PIN_B, SCL_PIN_B, 100000);
 
+
+  Serial.begin(BAUD);
+  // inicializar wifi
+  WiFi.begin(ssid, password);
+
+  // inicializar tiempo
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+  // setup MQTT
+  mqttSetup();
   // Establecer LCD
   lcd.init();
   lcd.backlight();
@@ -266,9 +298,9 @@ void setup() {
   // Primera imrpesión de pantalla
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("TP DOG G8 5LC");
+  lcd.print("Inicializando");
   lcd.setCursor(0, 1);
-  lcd.print("Codigo Integrado");
+  lcd.print("IoT Dog");
 
   // establecer radar
   Serial2.begin(256000, SERIAL_8N1, RXD2, TXD2);
@@ -319,7 +351,7 @@ void setup() {
 void loop() {
 
   // Lectura de actuadores.
-
+  wifiSetup();
   BMP = lecturaBMP();
   temperatura = BMP.temperatura;
   presion = BMP.presion;
@@ -329,11 +361,19 @@ void loop() {
   opto = lecturaOpto();
   presencia = lecturaRadar();
   corriente = lecturaINA219();
+  tiempo = leerTiempo();
 
   relay();
 
+  // display MENU
   display();
+  // control
   pulsadores();
+  // umbral
+  leds();
+
+  // mqtt send
+  mqttControl();
 }
 
 
@@ -456,7 +496,7 @@ void display() {
         pantalla = LUZ;
         pulsacionBoton1 = false;
       } else if (pulsacionBoton2) {
-        pantalla = OPTO;
+        pantalla = HORA;
         pulsacionBoton2 = false;
       } else if (pulsacionBoton3) {
         pantalla = INIT;
@@ -565,7 +605,7 @@ void display() {
 
 
       if (pulsacionBoton1) {
-        pantalla = TEMP_PRESION;
+        pantalla = HORA;
         pulsacionBoton1 = false;
       } else if (pulsacionBoton2) {
         pantalla = CORRIENTE;
@@ -575,6 +615,28 @@ void display() {
         pulsacionBoton3 = false;
       }
       break;
+
+    case HORA:
+
+      lcd.setCursor(0, 0);
+      lcd.print("Tiempo:");
+      lcd.setCursor(0, 1);
+      lcd.print(tiempo);
+
+
+
+      if (pulsacionBoton1) {
+        pantalla = TEMP_PRESION;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = OPTO;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      }
+      break;
+
     case VALOR_TEMP:
 
       // RANGO DE UMBRAL DE TEMPERATURA --> -40°C a 80°C
@@ -767,7 +829,7 @@ void pulsadores() {
 
     if (lectura4 != estadoBoton4) {
 
-      estadoBoton4 = lectura1;
+      estadoBoton4 = lectura4;
 
       if (estadoBoton4 == LOW) {
         pulsacionBoton4 = true;
@@ -808,6 +870,171 @@ void relay() {
     timerRelay = 0;
   }
 }
+
+String leerTiempo() {
+  struct tm obtenerTiempo;
+  if (!getLocalTime(&obtenerTiempo)) {
+    return "ERROR";
+  }
+  char charTiempo[15];
+  strftime(charTiempo, sizeof(charTiempo), "%H:%M:%S", &obtenerTiempo);
+  return String(charTiempo);
+}
+
+// setup funciones
+
+// MQTT
+void mqttSetup() {
+  mqttReconnectTimer = xTimerCreate("mqttTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(mqttClient.connect()));
+  wifiReconnectTimer = xTimerCreate("wifiTimer", pdMS_TO_TICKS(2000), pdFALSE, (void*)0, reinterpret_cast<TimerCallbackFunction_t>(WiFi.begin(ssid, password)));
+  WiFi.onEvent(WiFiEvent);
+  mqttClient.onConnect(onMqttConnect);
+  mqttClient.onDisconnect(onMqttDisconnect);
+  mqttClient.onPublish(onMqttPublish);
+  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+  mqttClient.setCredentials(MQTT_USERNAME, MQTT_PASSWORD);
+  WiFi.begin(ssid, password);
+}
+
+void WiFiEvent(WiFiEvent_t event) {
+  Serial.printf("[WiFi-event] event: %d\n", event);
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      Serial.println("WiFi connected");
+      Serial.println("IP address: ");
+      Serial.println(WiFi.localIP());
+      connectToMqtt();
+      break;
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      Serial.println("WiFi lost connection");
+      xTimerStop(mqttReconnectTimer, 0);  // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
+      xTimerStart(wifiReconnectTimer, 0);
+      break;
+  }
+}
+
+void onMqttConnect(bool sessionPresent) {
+  Serial.println("Connected to MQTT.");
+  Serial.print("Session present: ");
+  Serial.println(sessionPresent);
+}  ///////////////////////////////////////////////////
+
+////////////////NO TOCAR FUNCIONES MQTT///////////////////////////////////
+void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
+  Serial.println("Disconnected from MQTT.");
+  if (WiFi.isConnected()) {
+    xTimerStart(mqttReconnectTimer, 0);
+  }
+}
+////////////////NO TOCAR FUNCIONES MQTT///////////////////////////////////
+void onMqttPublish(uint16_t packetId) {
+  Serial.print("Publish acknowledged.");
+  Serial.print("  packetId: ");
+  Serial.println(packetId);
+}
+
+void mqttControl() {
+  if (timerEnvioMQTT >= TIEMPO_ENVIO_MQTT) {
+    mqttEntrada();
+    timerEnvioMQTT = 0;
+  }
+  if (timerLecturaMQTT >= TIEMPO_LECTURA_MQTT) {
+    mqttSalida();
+    timerLecturaMQTT = 0;
+  }
+}
+
+void mqttEntrada() {
+  if (indice_entra >= valor_max_struct) {
+    indice_entra = 0;  ///si llego al maximo de la cola se vuelve a cero
+  }
+  //////////// timestamp/////// consigo la hora
+  Serial.print("> NTP Time:");
+  timestamp = time(NULL);
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("Failed to obtain time");
+    return;  //// si no puede conseguir la hora
+  }
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  ///////////////////////// fin de consigo la hora
+
+  datos_struct[indice_entra].time = timestamp;
+  datos_struct[indice_entra].T1 = temperatura;  /// leeo los datos //aca va la funcion de cada sensor
+  datos_struct[indice_entra].P1 = presion;      //// se puede pasar por un parametro valor entre 0 y 100
+  datos_struct[indice_entra].luz = valorLuz;
+  datos_struct[indice_entra].G1 = valorGas;
+  datos_struct[indice_entra].cor = corriente;
+  datos_struct[indice_entra].pre = presencia;
+  datos_struct[indice_entra].oct = octo;
+  datos_struct[indice_entra].Alarma = emergencia;
+
+  indice_entra++;
+  Serial.print("saco valores de la struct ientra");
+  Serial.println(indice_entra);
+}
+void mqttSalida() {
+  if (indice_saca != indice_entra) {
+    aux2.time = datos_struct[indice_saca].time;
+    aux2.T1 = datos_struct[indice_saca].T1;
+    aux2.P1 = datos_struct[indice_saca].P1;
+    aux2.luz = datos_struct[indice_saca].luz;
+    aux2.G1 = datos_struct[indice_saca].G1;
+    aux2.cor = datos_struct[indice_saca].cor;
+    aux2.pre = datos_struct[indice_saca].pre;
+    aux2.oct = datos_struct[indice_saca].oct;
+    aux2.Alarma = datos_struct[indice_saca].Alarma;
+
+    flag_vacio = 0;
+
+    Serial.println(indice_saca);
+    if (indice_saca >= (valor_max_struct - 1)) {
+      indice_saca = 0;
+    } else {
+      indice_saca++;
+    }
+    Serial.print("saco valores de la struct isaca:");
+    Serial.println(indice_saca);
+  } else {
+    flag_vacio = 1;  ///// no hay datos
+  }
+  return;
+}
+
+// WIFI
+void wifiSetup() {
+  switch (wifiConfig) {
+    case WIFI_CONECTANDO:
+      if (timerWifi >= TIEMPO_WIFI) {
+        if (WiFi.status() == WL_CONNECTED) {
+          Serial.println("wifi conectado exitosamente");
+          wifiConfig = WIFI_CONECTADO;
+        }
+        timerWifi = 0;
+      }
+      break;
+
+    case WIFI_CONECTADO:
+
+      if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WIFI desconectado");
+        WiFi.begin(ssid, password);
+        wifiConfig = WIFI_CONECTANDO;
+      }
+  }
+}
+
+// UMBRAL
+void leds() {
+  if (temperatura >= umbralTemperatura || presion >= umbralPresion || valorLuz >= umbralLuz || valorGas >= umbralGas || corriente >= umbralCorriente) {
+    digitalWrite(LED_PIN_1, HIGH);
+    emergencia = 1;
+  } else {
+    digitalWrite(LED_PIN_1, LOW);
+    emergencia = 0;
+  }
+}
+
 void IRAM_ATTR onTimer() {
 
   timerBMP += 1;
@@ -819,7 +1046,9 @@ void IRAM_ATTR onTimer() {
   timerPulsador += 1;
   timerRelay += 1;
   timerDisplay += 1;
-
+  timerWifi += 1;
+  timerEnvioMQTT += 1;
+  timerLecturaMQTT += 1;
   timerBoton1 += 1;
   timerBoton2 += 1;
   timerBoton3 += 1;
