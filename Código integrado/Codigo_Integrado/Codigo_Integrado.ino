@@ -104,6 +104,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);  // LCD
 // BOOL
 bool bmpListo = false;
 bool ina219Listo = false;
+bool radarListo = false;
 
 // Uso de Struct para recopilar datos del bmp a la vez.
 struct datosBMP {
@@ -199,8 +200,6 @@ void setup() {
   pinMode(LED_PIN_2, OUTPUT);
 
   // solo para comprobar que se prenden
-  digitalWrite(LED_PIN_1, HIGH);
-  digitalWrite(LED_PIN_2, HIGH);
 
   pinMode(RELAY_PIN, OUTPUT);
 
@@ -211,8 +210,8 @@ void setup() {
   pinMode(BUTTON_PIN_1, INPUT_PULLUP);
   pinMode(BUTTON_PIN_2, INPUT_PULLUP);
   pinMode(BUTTON_PIN_3, INPUT_PULLUP);
-  pinMode(BUTTON_PIN_4, INPUT_PULLUP);
-  pinMode(BUTTON_PIN_5, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_4, INPUT);
+  pinMode(BUTTON_PIN_5, INPUT);
 
   // Serial.begin(BAUD);
 
@@ -229,11 +228,13 @@ void setup() {
 
   // establecer radar
   Serial2.begin(256000, SERIAL_8N1, RXD2, TXD2);
-
-  if (radar.begin(Serial2)) {
-    //Serial.println("OK: Sensor LD2410 detectado correctamente.");
+  bool statusRadar = radar.begin(Serial2);
+  if (!statusRadar) {
+    radarListo = false;
+    digitalWrite(LED_PIN_1, LOW);
   } else {
-    //Serial.println("ERROR: No se pudo conectar con el sensor LD2410. Revisa las conexiones.");
+    radarListo = true;//Serial.println("ERROR: No se pudo conectar con el sensor LD2410. Revisa las conexiones.");
+     digitalWrite(LED_PIN_1, HIGH);
   }
 
 
@@ -290,6 +291,8 @@ void loop() {
 
   display();
   pulsadores();
+
+  digitalWrite(LED_PIN_1, radarListo);
 }
 
 
@@ -367,6 +370,8 @@ bool lecturaRadar() {
       static uint32_t ultimoEnvio = 0;
 
       bool boolRadar = radar.presenceDetected();
+      
+      digitalWrite(LED_PIN_2, boolRadar);
       timerRadar = 0;
       return boolRadar;
     }
@@ -765,8 +770,6 @@ void relay() {
     timerRelay = 0;
   }
 
-  digitalWrite(LED_PIN_1, lectura4);
-  digitalWrite(LED_PIN_2, lectura5);
 }
 
 void leds() {
