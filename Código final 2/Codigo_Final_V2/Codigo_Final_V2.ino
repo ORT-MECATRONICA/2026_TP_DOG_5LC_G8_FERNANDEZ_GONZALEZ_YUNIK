@@ -180,7 +180,7 @@ volatile int timerBoton4 = 0;
 volatile int timerBoton5 = 0;
 
 volatile int timerWifi = 0;
-volatile int timerMQTTConfig = 0;
+unsigned long timerMQTTConfig = 0;
 
 // TIMER
 hw_timer_t* timer = NULL;  // timer
@@ -267,7 +267,8 @@ estructura aux2;
 void setup() {
 
   Serial.end();  // ya que usa gpio1 como input
-
+  WiFi.begin(ssid, password);
+  timerMQTTConfig = millis();
 
   pinMode(GAS_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
@@ -276,9 +277,9 @@ void setup() {
   pinMode(LED_PIN_1, OUTPUT);
   pinMode(LED_PIN_2, OUTPUT);
 
-  // solo para comprobar que se prenden
-  digitalWrite(LED_PIN_1, HIGH);
-  digitalWrite(LED_PIN_2, HIGH);
+
+  digitalWrite(LED_PIN_1, LOW);
+  digitalWrite(LED_PIN_2, LOW);
 
   pinMode(RELAY_PIN, OUTPUT);
 
@@ -355,35 +356,29 @@ void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     connectToWifi();
   }
+  // mqtt
   if (!mqttClient.connected()) {
     connectToMqtt();
   }
-  mqttClient.loop();
 
-  now = millis();
-  if (now - lastMeasure1 > interval_envio) {
-    lastMeasure1 = now;
-    fun_envio_mqtt();
+  if (mqttConfig == MQTT_CONECTADO) {
+    mqttClient.loop();
   }
-  if (now - lastMeasure2 > interval_leeo) {
-    lastMeasure2 = now;
-    fun_entra();
-  }
+
 
   // Lectura de actuadores.
 
   BMP = lecturaBMP();
   temperatura = BMP.temperatura;
   presion = BMP.presion;
-
   valorLuz = lecturaLDR();
   valorGas = lecturaGas();
   opto = lecturaOpto();
   presencia = lecturaRadar();
   corriente = lecturaINA219();
 
+  controlMQTT();
   relay();
-
   display();
   pulsadores();
   leds();
@@ -868,44 +863,85 @@ void relay() {
 // Wifi --> hacerla no bloqueante
 void connectToWifi() {
   switch (wifiConfig) {
+
     case WIFI_CONECTANDO:
-      if (timerWifi >= TIEMPO_WIFI) {
-        if (WiFi.status() == WL_CONNECTED) {
-          // Serial.println("wifi conectado exitosamente");
-          wifiConfig = WIFI_CONECTADO;
-          return 1;
-        }
-        timerWifi = 0;
+
+      digitalWrite(LED_PIN_2, LOW);
+
+      if (WiFi.status() == WL_CONNECTED) {
+
+        wifiConfig = WIFI_CONECTADO;
+        Serial.println("WiFi conectado");
       }
+
       break;
+
 
     case WIFI_CONECTADO:
 
+      digitalWrite(LED_PIN_2, HIGH);
       if (WiFi.status() != WL_CONNECTED) {
-        // Serial.println("WIFI desconectado");
-        return 0;
+
+        Serial.println("WiFi desconectado");
+
         WiFi.begin(ssid, password);
+
         wifiConfig = WIFI_CONECTANDO;
       }
+
+      break;
   }
 }
 
 // hacerla no bloqueante
 void connectToMqtt() {
-
   switch (mqttConfig) {
+
     case MQTT_DESCONECTADO:
-      if (timerMQTTConfig >= TIEMPO_CONEXION_MQTT) {
-        if (!mqttClient.connected()) {
-          String clientId = "ESP32_Grupo_" + String(name_device) + "_" + WiFi.macAddress();
+
+      // Primero verificar conexión WiFi
+      if (wifiConfig != WIFI_CONECTADO) {
+        return;
+      }
+
+      // Esperar intervalo entre intentos
+      if (millis() - timerMQTTConfig >= TIEMPO_CONEXION_MQTT) {
+
+        Serial.println("Conectando a MQTT...");
+
+        String clientId = "ESP32_Grupo_" + String(name_device) + "_" + WiFi.macAddress();
+
+        timerMQTTConfig = millis();
+
+        if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
+
+          Serial.println("MQTT conectado");
+
+          mqttConfig = MQTT_CONECTADO;
+
+        } else {
+
+          Serial.print("Error MQTT: ");
+          Serial.println(mqttClient.state());
         }
       }
-      if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
-        mqttConfig = MQTT_CONECTADO;
-        timerMQTTConfig = 0;
-      }
+
+      break;
+
+
     case MQTT_CONECTADO:
-  
+
+      if (!mqttClient.connected()) {
+
+        Serial.println("MQTT desconectado");
+
+        mqttConfig = MQTT_DESCONECTADO;
+
+        timerMQTTConfig = millis();
+      }
+
+      break;
+  }
 }
 
 
@@ -992,14 +1028,26 @@ void fun_entra(void) {
 
 void leds() {
   if (temperatura >= umbralTemperatura || presion >= umbralPresion || valorLuz >= umbralLuz || valorGas >= umbralGas || corriente >= umbralCorriente) {
-    //digitalWrite(LED_PIN_1, HIGH);
+    digitalWrite(LED_PIN_1, HIGH);
     emergencia = 1;
   } else {
-    //digitalWrite(LED_PIN_1, LOW);
+    digitalWrite(LED_PIN_1, LOW);
     emergencia = 0;
   }
 }
 
+void controlMQTT() {  // control de envío mqtt
+
+  now = millis();
+  if (now - lastMeasure1 > interval_envio) {
+    lastMeasure1 = now;
+    fun_envio_mqtt();
+  }
+  if (now - lastMeasure2 > interval_leeo) {
+    lastMeasure2 = now;
+    fun_entra();
+  }
+}
 void IRAM_ATTR onTimer() {
 
   timerBMP += 1;
