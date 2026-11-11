@@ -41,7 +41,7 @@
 #define BAUD 115200
 
 // MQTT
-#define MQTT_HOST IPAddress(192, 168, 10, 151)  ///se debe cambiar por el ip de meca o hall del 4
+#define MQTT_HOST IPAddress(, , , )  ///se debe cambiar por el ip de meca o hall del 4
 #define MQTT_PORT 1884
 #define MQTT_USERNAME "esp32"
 #define MQTT_PASSWORD "mirko15"
@@ -282,7 +282,7 @@ void setup() {
   Wire1.begin(SDA_PIN_B, SCL_PIN_B, 100000);
 
 
-  Serial.begin(BAUD);
+  Serial.end();
   // inicializar wifi
   WiFi.begin(ssid, password);
 
@@ -306,9 +306,9 @@ void setup() {
   Serial2.begin(256000, SERIAL_8N1, RXD2, TXD2);
 
   if (radar.begin(Serial2)) {
-    Serial.println("OK: Sensor LD2410 detectado correctamente.");
+   // Serial.println("OK: Sensor LD2410 detectado correctamente.");
   } else {
-    Serial.println("ERROR: No se pudo conectar con el sensor LD2410. Revisa las conexiones.");
+    //Serial.println("ERROR: No se pudo conectar con el sensor LD2410. Revisa las conexiones.");
   }
 
 
@@ -316,9 +316,9 @@ void setup() {
   unsigned status;
   status = bmp.begin(0x76);
   if (!status) {
-    Serial.println(F("BMP No Configurado!"));
-    Serial.print("ID SENSOR: 0x");
-    Serial.println(bmp.sensorID(), 16);
+    //Serial.println(F("BMP No Configurado!"));
+    //Serial.print("ID SENSOR: 0x");
+    //Serial.println(bmp.sensorID(), 16);
     bmpListo = false;
   } else {
     bmpListo = true;
@@ -335,7 +335,7 @@ void setup() {
 
   // establecer INA219
   if (!ina219.begin(&Wire1)) {
-    Serial.println("No se encontró el sensor INA219");
+    //Serial.println("No se encontró el sensor INA219");
     ina219Listo = false;
   } else {
     ina219Listo = true;
@@ -861,10 +861,10 @@ void relay() {
   if (timerRelay >= 1000) {
     if (RELAY_PIN == LOW) {
       digitalWrite(RELAY_PIN, HIGH);
-      Serial.println("Relay HIGH");
+      //Serial.println("Relay HIGH");
     } else {
       digitalWrite(RELAY_PIN, LOW);
-      Serial.println("Relay LOW");
+      //Serial.println("Relay LOW");
     }
 
     timerRelay = 0;
@@ -900,13 +900,13 @@ void WiFiEvent(WiFiEvent_t event) {
   Serial.printf("[WiFi-event] event: %d\n", event);
   switch (event) {
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      Serial.println("WiFi connected");
-      Serial.println("IP address: ");
-      Serial.println(WiFi.localIP());
+      //Serial.println("WiFi connected");
+      //Serial.println("IP address: ");
+      //Serial.println(WiFi.localIP());
       connectToMqtt();
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
-      Serial.println("WiFi lost connection");
+      //Serial.println("WiFi lost connection");
       xTimerStop(mqttReconnectTimer, 0);  // ensure we don't reconnect to MQTT while reconnecting to Wi-Fi
       xTimerStart(wifiReconnectTimer, 0);
       break;
@@ -914,23 +914,23 @@ void WiFiEvent(WiFiEvent_t event) {
 }
 
 void onMqttConnect(bool sessionPresent) {
-  Serial.println("Connected to MQTT.");
-  Serial.print("Session present: ");
-  Serial.println(sessionPresent);
+  //Serial.println("Connected to MQTT.");
+  //Serial.print("Session present: ");
+  //Serial.println(sessionPresent);
 }  ///////////////////////////////////////////////////
 
 ////////////////NO TOCAR FUNCIONES MQTT///////////////////////////////////
 void onMqttDisconnect(AsyncMqttClientDisconnectReason reason) {
-  Serial.println("Disconnected from MQTT.");
+ // Serial.println("Disconnected from MQTT.");
   if (WiFi.isConnected()) {
     xTimerStart(mqttReconnectTimer, 0);
   }
 }
 ////////////////NO TOCAR FUNCIONES MQTT///////////////////////////////////
 void onMqttPublish(uint16_t packetId) {
-  Serial.print("Publish acknowledged.");
-  Serial.print("  packetId: ");
-  Serial.println(packetId);
+ // Serial.print("Publish acknowledged.");
+ // Serial.print("  packetId: ");
+ // Serial.println(packetId);
 }
 
 void mqttControl() {
@@ -949,14 +949,14 @@ void mqttEntrada() {
     indice_entra = 0;  ///si llego al maximo de la cola se vuelve a cero
   }
   //////////// timestamp/////// consigo la hora
-  Serial.print("> NTP Time:");
+  //Serial.print("> NTP Time:");
   timestamp = time(NULL);
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-    Serial.println("Failed to obtain time");
+    //Serial.println("Failed to obtain time");
     return;  //// si no puede conseguir la hora
   }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  //Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
   ///////////////////////// fin de consigo la hora
 
   datos_struct[indice_entra].time = timestamp;
@@ -970,8 +970,8 @@ void mqttEntrada() {
   datos_struct[indice_entra].Alarma = emergencia;
 
   indice_entra++;
-  Serial.print("saco valores de la struct ientra");
-  Serial.println(indice_entra);
+  //Serial.print("saco valores de la struct ientra");
+  //Serial.println(indice_entra);
 }
 void mqttSalida() {
   if (indice_saca != indice_entra) {
@@ -987,14 +987,14 @@ void mqttSalida() {
 
     flag_vacio = 0;
 
-    Serial.println(indice_saca);
+    //Serial.println(indice_saca);
     if (indice_saca >= (valor_max_struct - 1)) {
       indice_saca = 0;
     } else {
       indice_saca++;
     }
-    Serial.print("saco valores de la struct isaca:");
-    Serial.println(indice_saca);
+    //Serial.print("saco valores de la struct isaca:");
+    //Serial.println(indice_saca);
   } else {
     flag_vacio = 1;  ///// no hay datos
   }
@@ -1007,7 +1007,7 @@ void wifiSetup() {
     case WIFI_CONECTANDO:
       if (timerWifi >= TIEMPO_WIFI) {
         if (WiFi.status() == WL_CONNECTED) {
-          Serial.println("wifi conectado exitosamente");
+         // Serial.println("wifi conectado exitosamente");
           wifiConfig = WIFI_CONECTADO;
         }
         timerWifi = 0;
@@ -1017,7 +1017,7 @@ void wifiSetup() {
     case WIFI_CONECTADO:
 
       if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("WIFI desconectado");
+       // Serial.println("WIFI desconectado");
         WiFi.begin(ssid, password);
         wifiConfig = WIFI_CONECTANDO;
       }

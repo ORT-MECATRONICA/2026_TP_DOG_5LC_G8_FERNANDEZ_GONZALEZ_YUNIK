@@ -63,8 +63,8 @@ Swapped places between PIN1 and PIN2 with PIN4 and PIN5
 #define BUTTON_PIN_1 4
 #define BUTTON_PIN_2 21
 #define BUTTON_PIN_3 5
-#define BUTTON_PIN_4 3
-#define BUTTON_PIN_5 1
+#define BUTTON_PIN_4 1
+#define BUTTON_PIN_5 3
 
 
 
@@ -183,11 +183,13 @@ bool lectura3;
 bool lectura4;
 bool lectura5;
 
+bool emergencia;
+
 // Función Setup
 void setup() {
 
   Serial.end(); // ya que usa gpio1 como input
-  Serial0.end();
+  
 
   pinMode(GAS_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
@@ -762,7 +764,21 @@ void relay() {
 
     timerRelay = 0;
   }
+
+  digitalWrite(LED_PIN_1, lectura4);
+  digitalWrite(LED_PIN_2, lectura5);
 }
+
+void leds() {
+  if (temperatura >= umbralTemperatura || presion >= umbralPresion || valorLuz >= umbralLuz || valorGas >= umbralGas || corriente >= umbralCorriente) {
+    //digitalWrite(LED_PIN_1, HIGH);
+    emergencia = 1;
+  } else {
+    //digitalWrite(LED_PIN_1, LOW);
+    emergencia = 0;
+  }
+}
+
 void IRAM_ATTR onTimer() {
 
   timerBMP += 1;
