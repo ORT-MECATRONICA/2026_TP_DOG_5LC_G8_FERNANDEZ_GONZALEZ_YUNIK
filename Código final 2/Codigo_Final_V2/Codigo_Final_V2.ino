@@ -45,7 +45,8 @@
 #define TIEMPO_REFRESH_DISPLAY 100
 #define TIEMPO_MENSAJES 2000
 #define TIEMPO_DEBOUNCE 50
-
+#define TIEMPO_WIFI 500
+#define TIEMPO_CONEXION_MQTT 5000
 // pinout
 #define OPTO_PIN 39
 
@@ -105,6 +106,22 @@ estadosDisplay pantalla = INIT;
 estadosDisplay pantallaAnterior;
 // 2. Crear una variable para guardar el estado actual
 
+// estados wifi
+enum estadosWifi {
+  WIFI_CONECTANDO,
+  WIFI_CONECTADO,
+} estadosWifi_t;
+
+// variable wifi
+estadosWifi wifiConfig = WIFI_CONECTANDO;
+
+enum estadosConexionMQTT {
+  MQTT_CONECTADO,
+  MQTT_DESCONECTADO,
+} estadosConexionMQTT_t;
+
+estadosConexionMQTT mqttConfig = MQTT_DESCONECTADO;
+
 // Configuración de actuadores
 
 Adafruit_BMP280 bmp(&Wire1);  // I2C
@@ -162,6 +179,8 @@ volatile int timerBoton3 = 0;
 volatile int timerBoton4 = 0;
 volatile int timerBoton5 = 0;
 
+volatile int timerWifi = 0;
+volatile int timerMQTTConfig = 0;
 
 // TIMER
 hw_timer_t* timer = NULL;  // timer
@@ -332,7 +351,7 @@ void setup() {
 // Función Loop
 void loop() {
 
-// wifi
+  // wifi
   if (WiFi.status() != WL_CONNECTED) {
     connectToWifi();
   }
@@ -848,37 +867,55 @@ void relay() {
 // FUNCIONES MQTT
 // Wifi --> hacerla no bloqueante
 void connectToWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
- 
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    
+  switch (wifiConfig) {
+    case WIFI_CONECTANDO:
+      if (timerWifi >= TIEMPO_WIFI) {
+        if (WiFi.status() == WL_CONNECTED) {
+          // Serial.println("wifi conectado exitosamente");
+          wifiConfig = WIFI_CONECTADO;
+          return 1;
+        }
+        timerWifi = 0;
+      }
+      break;
+
+    case WIFI_CONECTADO:
+
+      if (WiFi.status() != WL_CONNECTED) {
+        // Serial.println("WIFI desconectado");
+        return 0;
+        WiFi.begin(ssid, password);
+        wifiConfig = WIFI_CONECTANDO;
+      }
   }
-  
 }
 
 // hacerla no bloqueante
 void connectToMqtt() {
-  while (!mqttClient.connected()) {
- 
-    String clientId = "ESP32_Grupo_" + String(name_device) + "_" + WiFi.macAddress();
 
-    if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
-      
-    } else {
-
-      delay(5000);
-    }
-  }
+  switch (mqttConfig) {
+    case MQTT_DESCONECTADO:
+      if (timerMQTTConfig >= TIEMPO_CONEXION_MQTT) {
+        if (!mqttClient.connected()) {
+          String clientId = "ESP32_Grupo_" + String(name_device) + "_" + WiFi.macAddress();
+        }
+      }
+      if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
+        mqttConfig = MQTT_CONECTADO;
+        timerMQTTConfig = 0;
+      }
+    case MQTT_CONECTADO:
+  
 }
+
+
 
 // MQTT FUNCTION
 void fun_envio_mqtt() {
   fun_saca();           //// veo si hay valores nuevos
   if (flag_vacio == 0)  //// si hay los envio
   {
-    
+
     snprintf(mqtt_payload, sizeof(mqtt_payload),
              "%d&%ld&%.2f&%.2f&%.2f&%.2f&%.2f&%u&%u&%u",
              name_device, aux2.time, aux2.T1, aux2.P1, aux2.luz,
@@ -898,7 +935,6 @@ void fun_envio_mqtt() {
 
     mqttClient.publish(MQTT_PUB, mqtt_payload);
   } else {
-    
   }
 }
 
@@ -932,14 +968,14 @@ void fun_entra(void) {
     indice_entra = 0;
   }
 
- 
+
   timestamp = time(NULL);
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-    
+
     return;
   }
- 
+
 
   datos_struct[indice_entra].time = timestamp;
   datos_struct[indice_entra].T1 = temperatura;
@@ -952,7 +988,6 @@ void fun_entra(void) {
   datos_struct[indice_entra].Alarma = emergencia;
 
   indice_entra++;
-
 }
 
 void leds() {
@@ -976,7 +1011,8 @@ void IRAM_ATTR onTimer() {
   timerPulsador += 1;
   timerRelay += 1;
   timerDisplay += 1;
-
+  timerWifi += 1;
+  timerMQTTConfig += 1;
   timerBoton1 += 1;
   timerBoton2 += 1;
   timerBoton3 += 1;

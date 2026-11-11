@@ -70,8 +70,8 @@ Swapped places between PIN1 and PIN2 with PIN4 and PIN5
 
 // Configuración de pines UART2 en ESP32
 // LD2410C,
-#define RXD2 16
-#define TXD2 17
+#define RXD2 17
+#define TXD2 16
 
 enum estadosDisplay {
   INIT,
@@ -189,8 +189,8 @@ bool emergencia;
 // Función Setup
 void setup() {
 
-  Serial.end(); // ya que usa gpio1 como input
-  
+  Serial.end();  // ya que usa gpio1 como input
+
 
   pinMode(GAS_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
@@ -210,8 +210,8 @@ void setup() {
   pinMode(BUTTON_PIN_1, INPUT_PULLUP);
   pinMode(BUTTON_PIN_2, INPUT_PULLUP);
   pinMode(BUTTON_PIN_3, INPUT_PULLUP);
-  pinMode(BUTTON_PIN_4, INPUT);
-  pinMode(BUTTON_PIN_5, INPUT);
+  pinMode(BUTTON_PIN_4, INPUT_PULLUP);
+  pinMode(BUTTON_PIN_5, INPUT_PULLUP);
 
   // Serial.begin(BAUD);
 
@@ -228,14 +228,12 @@ void setup() {
 
   // establecer radar
   Serial2.begin(256000, SERIAL_8N1, RXD2, TXD2);
-  bool statusRadar = radar.begin(Serial2);
-  if (!statusRadar) {
-    radarListo = false;
-    digitalWrite(LED_PIN_1, LOW);
+  if (radar.begin(Serial2)) {
+    digitalWrite(LED_PIN_1, HIGH);
   } else {
-    radarListo = true;//Serial.println("ERROR: No se pudo conectar con el sensor LD2410. Revisa las conexiones.");
-     digitalWrite(LED_PIN_1, HIGH);
+    digitalWrite(LED_PIN_1, LOW);
   }
+
 
 
   // establecer BMP280
@@ -370,7 +368,7 @@ bool lecturaRadar() {
       static uint32_t ultimoEnvio = 0;
 
       bool boolRadar = radar.presenceDetected();
-      
+
       digitalWrite(LED_PIN_2, boolRadar);
       timerRadar = 0;
       return boolRadar;
@@ -465,7 +463,11 @@ void display() {
 
     case PRESENCIA:
 
-      if (presencia == 0) {
+      lcd.setCursor(0, 0);
+      lcd.print("Presencia:");
+      lcd.setCursor(0, 1);
+      lcd.print(presencia);
+      /* if (presencia == 0) {
 
 
         lcd.setCursor(0, 0);
@@ -479,7 +481,7 @@ void display() {
         lcd.print("Presencia:");
         lcd.setCursor(0, 1);
         lcd.print("SI");
-      }
+      } */
 
 
       if (pulsacionBoton1) {
@@ -769,7 +771,6 @@ void relay() {
 
     timerRelay = 0;
   }
-
 }
 
 void leds() {
