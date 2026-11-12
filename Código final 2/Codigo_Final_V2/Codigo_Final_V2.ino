@@ -86,6 +86,7 @@ Swapped places between PIN1 and PIN2 with PIN4 and PIN5
 #define RXD2 16
 #define TXD2 17
 
+// estados pantalla
 enum estadosDisplay {
   INIT,
   TEMP_PRESION,
@@ -103,9 +104,10 @@ enum estadosDisplay {
 } estadosDisplay_t;
 
 
+// pantalla
 estadosDisplay pantalla = INIT;
+// guarda la pantalla anterior para detectar si hubo cambio de pantalla
 estadosDisplay pantallaAnterior;
-// 2. Crear una variable para guardar el estado actual
 
 // estados wifi
 enum estadosWifi {
@@ -116,23 +118,25 @@ enum estadosWifi {
 // variable wifi
 estadosWifi wifiConfig = WIFI_CONECTANDO;
 
+// estados mqtt
 enum estadosConexionMQTT {
   MQTT_CONECTADO,
   MQTT_DESCONECTADO,
 } estadosConexionMQTT_t;
 
+// variable mqtt
 estadosConexionMQTT mqttConfig = MQTT_DESCONECTADO;
 
 // Configuración de actuadores
 
-Adafruit_BMP280 bmp(&Wire1);  // I2C
-Adafruit_INA219 ina219;       // ina219
-ld2410 radar;                 // ld2410
+Adafruit_BMP280 bmp(&Wire1);  // I2C (temp, presión)
+Adafruit_INA219 ina219;       // ina219 (corriente)
+ld2410 radar;                 // ld2410 (radar)
 
 // corregir bus i2c
 LiquidCrystal_I2C lcd(0x27, 16, 2);  // LCD
 
-// BOOL
+// BOOL SENSORES BMP Y INA219
 bool bmpListo = false;
 bool ina219Listo = false;
 
@@ -171,7 +175,6 @@ volatile int timerOpto = 0;
 volatile int timerRadar = 0;
 volatile int timerPulsador = 0;
 volatile int timerDisplay = 0;
-volatile int timerMensajes = 0;
 volatile int timerRelay = 0;
 
 volatile int timerBoton1 = 0;
@@ -180,7 +183,7 @@ volatile int timerBoton3 = 0;
 volatile int timerBoton4 = 0;
 volatile int timerBoton5 = 0;
 
-volatile int timerWifi = 0;
+
 unsigned long timerMQTTConfig = 0;
 
 // TIMER
@@ -219,7 +222,7 @@ bool lectura5;
 bool emergencia;
 
 // MQTT
-const char* ssid = "Meca-IoT-V2";      // <-- Cambiar si usas Wi-Fi externo
+const char* ssid = "MECA-IoT-V2";   // <-- Cambiar si usas Wi-Fi externo
 const char* password = "IoT$2026";  // <-- Cambiar clave de Wi-Fi
 const uint8_t name_device = 138;
 
@@ -271,6 +274,18 @@ void setup() {
   WiFi.begin(ssid, password);
   timerMQTTConfig = millis();
 
+  // conectar a wifi
+  connectToWifi();
+
+  // Habilitar conexión SSL sin verificar certificado CA en flash
+  espClient.setInsecure();
+  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+
+  // Setup de time
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+
+  // Configuración pines
   pinMode(GAS_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
   pinMode(OPTO_PIN, INPUT);
@@ -308,13 +323,7 @@ void setup() {
 
   // establecer radar
   Serial2.begin(256000, SERIAL_8N1, RXD2, TXD2);
-
-  if (radar.begin(Serial2)) {
-    //Serial.println("OK: Sensor LD2410 detectado correctamente.");
-  } else {
-    //Serial.println("ERROR: No se pudo conectar con el sensor LD2410. Revisa las conexiones.");
-  }
-
+  radar.begin(Serial2);
 
   // establecer BMP280
   unsigned status;
@@ -353,16 +362,18 @@ void setup() {
 // Función Loop
 void loop() {
 
-  // wifi
-  if (WiFi.status() != WL_CONNECTED) {
-    connectToWifi();
-  }
-  // mqtt
-  if (!mqttClient.connected()) {
-    connectToMqtt();
-  }
+  // conexión wifi
 
+  connectToWifi();
+
+  // conexión mqtt
+
+  connectToMqtt();
+
+
+  // si el mqtt está conectado
   if (mqttConfig == MQTT_CONECTADO) {
+    // ejecutar mqtt
     mqttClient.loop();
   }
 
@@ -378,15 +389,22 @@ void loop() {
   presencia = lecturaRadar();
   corriente = lecturaINA219();
 
+
+  // control mqtt
   controlMQTT();
+
+  // actuadores
   relay();
   display();
   pulsadores();
+
+  // emergencia
   leds();
 }
 
 
 // FUNCIONES DE ACTUADORES
+// presión y temperatura
 datosBMP lecturaBMP() {
 
   datosBMP bmpPack;
@@ -401,6 +419,7 @@ datosBMP lecturaBMP() {
   }
 }
 
+// corriente
 float lecturaINA219() {
   if (ina219Listo == true && timerINA219 >= TIEMPO_LECTURA_INA219) {
 
@@ -413,6 +432,7 @@ float lecturaINA219() {
   }
 }
 
+// ldr
 float lecturaLDR() {
 
   if (timerLDR >= TIEMPO_LECTURA_LDR) {
@@ -428,6 +448,7 @@ float lecturaLDR() {
   }
 }
 
+// gas
 float lecturaGas() {
   if (timerGas >= TIEMPO_LECTURA_MQ) {
 
@@ -440,6 +461,7 @@ float lecturaGas() {
   }
 }
 
+// opto
 bool lecturaOpto() {
 
   if (timerOpto >= TIEMPO_LECTURA_OPTO) {
@@ -452,6 +474,7 @@ bool lecturaOpto() {
   }
 }
 
+// radar
 bool lecturaRadar() {
 
   if (timerRadar >= TIEMPO_LECTURA_RADAR) {
@@ -624,7 +647,7 @@ void display() {
         pulsacionBoton3 = false;
       }
       break;
-      case EMERGENCIA:
+    case EMERGENCIA:
 
       lcd.setCursor(0, 0);
       lcd.print("EMERGENCIA:");
@@ -683,10 +706,10 @@ void display() {
         pantalla = INIT;
         pulsacionBoton3 = false;
       } else if (pulsacionBoton4) {
-        if (umbralPresion < 200) { umbralPresion++; }
+        if (umbralPresion < 110000) { umbralPresion = umbralPresion + 1000; }
         pulsacionBoton4 = false;
       } else if (pulsacionBoton5) {
-        if (umbralPresion > 0) { umbralPresion--; }
+        if (umbralPresion > 30000) { umbralPresion = umbralPresion - 1000; }
         pulsacionBoton5 = false;
       }
       break;
@@ -755,7 +778,7 @@ void display() {
         pantalla = INIT;
         pulsacionBoton3 = false;
       } else if (pulsacionBoton4) {
-        if (umbralCorriente < 5000) { umbralCorriente = umbralCorriente + 100; }
+        if (umbralCorriente < 3200) { umbralCorriente = umbralCorriente + 100; }
         pulsacionBoton4 = false;
       } else if (pulsacionBoton5) {
         if (umbralCorriente > 0) { umbralCorriente = umbralCorriente - 100; }
@@ -764,6 +787,8 @@ void display() {
       break;
   }
 }
+
+// pulsadores
 void pulsadores() {
   lectura1 = digitalRead(BUTTON_PIN_1);
   lectura2 = digitalRead(BUTTON_PIN_2);
@@ -864,6 +889,7 @@ void pulsadores() {
   }
 }
 
+// relé
 void relay() {
 
   if (timerRelay >= 1000) {
@@ -880,8 +906,7 @@ void relay() {
 }
 
 
-// FUNCIONES MQTT
-// Wifi --> hacerla no bloqueante
+// conectar wifi
 void connectToWifi() {
   switch (wifiConfig) {
 
@@ -892,7 +917,7 @@ void connectToWifi() {
       if (WiFi.status() == WL_CONNECTED) {
 
         wifiConfig = WIFI_CONECTADO;
-        Serial.println("WiFi conectado");
+        //Serial.println("WiFi conectado");
       }
 
       break;
@@ -903,7 +928,7 @@ void connectToWifi() {
       digitalWrite(LED_PIN_2, HIGH);
       if (WiFi.status() != WL_CONNECTED) {
 
-        Serial.println("WiFi desconectado");
+        //Serial.println("WiFi desconectado");
 
         WiFi.begin(ssid, password);
 
@@ -914,7 +939,7 @@ void connectToWifi() {
   }
 }
 
-// hacerla no bloqueante
+// mqtt conexión
 void connectToMqtt() {
   switch (mqttConfig) {
 
@@ -928,7 +953,7 @@ void connectToMqtt() {
       // Esperar intervalo entre intentos
       if (millis() - timerMQTTConfig >= TIEMPO_CONEXION_MQTT) {
 
-        Serial.println("Conectando a MQTT...");
+        //Serial.println("Conectando a MQTT...");
 
         String clientId = "ESP32_Grupo_" + String(name_device) + "_" + WiFi.macAddress();
 
@@ -936,14 +961,14 @@ void connectToMqtt() {
 
         if (mqttClient.connect(clientId.c_str(), MQTT_USERNAME, MQTT_PASSWORD)) {
 
-          Serial.println("MQTT conectado");
+          //Serial.println("MQTT conectado");
 
           mqttConfig = MQTT_CONECTADO;
 
         } else {
 
-          Serial.print("Error MQTT: ");
-          Serial.println(mqttClient.state());
+          // Serial.print("Error MQTT: ");
+          // Serial.println(mqttClient.state());
         }
       }
 
@@ -965,9 +990,7 @@ void connectToMqtt() {
   }
 }
 
-
-
-// MQTT FUNCTION
+// MQTT FUNCIONES
 void fun_envio_mqtt() {
   fun_saca();           //// veo si hay valores nuevos
   if (flag_vacio == 0)  //// si hay los envio
@@ -991,7 +1014,6 @@ void fun_envio_mqtt() {
 
 
     mqttClient.publish(MQTT_PUB, mqtt_payload);
-  } else {
   }
 }
 
@@ -1047,15 +1069,6 @@ void fun_entra(void) {
   indice_entra++;
 }
 
-void leds() {
-  if (temperatura >= umbralTemperatura || presion >= umbralPresion || valorLuz >= umbralLuz || valorGas >= umbralGas || corriente >= umbralCorriente) {
-    digitalWrite(LED_PIN_1, HIGH);
-    emergencia = 1;
-  } else {
-    digitalWrite(LED_PIN_1, LOW);
-    emergencia = 0;
-  }
-}
 
 void controlMQTT() {  // control de envío mqtt
 
@@ -1069,6 +1082,17 @@ void controlMQTT() {  // control de envío mqtt
     fun_entra();
   }
 }
+
+// función de emergencia. utiliza LED 1 como indicador de emergencia
+void leds() {
+  if (temperatura >= umbralTemperatura || presion >= umbralPresion || valorLuz >= umbralLuz || valorGas >= umbralGas || corriente >= umbralCorriente) {
+    digitalWrite(LED_PIN_1, HIGH);
+    emergencia = 1;
+  } else {
+    digitalWrite(LED_PIN_1, LOW);
+    emergencia = 0;
+  }
+}
 void IRAM_ATTR onTimer() {
 
   timerBMP += 1;
@@ -1080,13 +1104,9 @@ void IRAM_ATTR onTimer() {
   timerPulsador += 1;
   timerRelay += 1;
   timerDisplay += 1;
-  timerWifi += 1;
-  timerMQTTConfig += 1;
   timerBoton1 += 1;
   timerBoton2 += 1;
   timerBoton3 += 1;
   timerBoton4 += 1;
   timerBoton5 += 1;
-
-  //timerMensajes += 1;
 }
