@@ -94,6 +94,7 @@ enum estadosDisplay {
   PRESENCIA,
   OPTO,
   CORRIENTE,
+  EMERGENCIA,
   VALOR_TEMP,
   VALOR_PRESION,
   VALOR_LUZ,
@@ -218,8 +219,8 @@ bool lectura5;
 bool emergencia;
 
 // MQTT
-const char* ssid = "POCO";      // <-- Cambiar si usas Wi-Fi externo
-const char* password = "mirk";  // <-- Cambiar clave de Wi-Fi
+const char* ssid = "Meca-IoT-V2";      // <-- Cambiar si usas Wi-Fi externo
+const char* password = "IoT$2026";  // <-- Cambiar clave de Wi-Fi
 const uint8_t name_device = 138;
 
 // Timers auxiliar variables//////////////////////////
@@ -504,7 +505,7 @@ void display() {
         pantalla = LUZ;
         pulsacionBoton1 = false;
       } else if (pulsacionBoton2) {
-        pantalla = OPTO;
+        pantalla = EMERGENCIA;
         pulsacionBoton2 = false;
       } else if (pulsacionBoton3) {
         pantalla = INIT;
@@ -613,10 +614,30 @@ void display() {
 
 
       if (pulsacionBoton1) {
-        pantalla = TEMP_PRESION;
+        pantalla = EMERGENCIA;
         pulsacionBoton1 = false;
       } else if (pulsacionBoton2) {
         pantalla = CORRIENTE;
+        pulsacionBoton2 = false;
+      } else if (pulsacionBoton3) {
+        pantalla = INIT;
+        pulsacionBoton3 = false;
+      }
+      break;
+      case EMERGENCIA:
+
+      lcd.setCursor(0, 0);
+      lcd.print("EMERGENCIA:");
+      lcd.setCursor(0, 1);
+      lcd.print(emergencia);
+
+
+
+      if (pulsacionBoton1) {
+        pantalla = TEMP_PRESION;
+        pulsacionBoton1 = false;
+      } else if (pulsacionBoton2) {
+        pantalla = OPTO;
         pulsacionBoton2 = false;
       } else if (pulsacionBoton3) {
         pantalla = INIT;
